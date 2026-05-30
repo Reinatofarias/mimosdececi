@@ -22,26 +22,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <AuthProvider>
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-warm)' }}>
-      {/* Sidebar */}
+      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-bg-warm)', fontFamily: 'var(--font-admin)' }}>
+      {/* Sidebar - Executive Premium Dark Slate */}
       <aside style={{ 
         width: '260px', 
-        backgroundColor: 'var(--color-surface)', 
-        borderRight: '1px solid var(--color-border)',
+        backgroundColor: '#111115', 
+        borderRight: '1px solid rgba(255, 255, 255, 0.05)',
         display: 'flex',
         flexDirection: 'column',
         padding: 'var(--space-md)'
       }}>
-        <div style={{ padding: 'var(--space-md) 0', borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-lg)' }}>
-          <Link href="/" className="text-accent" style={{ fontSize: 'var(--text-2xl)' }}>
-            Mimos de Ceci
+        {/* Sidebar Header with Compact Brand Logo */}
+        <div style={{ 
+          padding: 'var(--space-md) 0 var(--space-lg)', 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)', 
+          marginBottom: 'var(--space-lg)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: '8px' 
+        }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform var(--transition-fast)' }} className="admin-logo-hover">
+            <img 
+              src="/logo-compact.png" 
+              alt="Mimos de Ceci" 
+              style={{ 
+                height: '42px', 
+                width: 'auto', 
+                objectFit: 'contain',
+                display: 'block'
+              }} 
+            />
           </Link>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: '4px' }}>
-            Painel Administrativo
+          <p style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 'var(--text-xs)', margin: 0, textAlign: 'center', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>
+            Painel Executivo
           </p>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', flexGrow: 1 }}>
+        {/* Navigation Items */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', flexGrow: 1 }}>
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
             return (
@@ -54,28 +73,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   gap: 'var(--space-sm)',
                   padding: '12px 16px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: isActive ? 'var(--color-primary-lightest)' : 'transparent',
-                  color: isActive ? 'var(--color-primary-dark)' : 'var(--color-text-secondary)',
+                  backgroundColor: isActive ? 'rgba(244, 146, 158, 0.15)' : 'transparent',
+                  color: isActive ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.65)',
                   fontWeight: isActive ? 600 : 500,
-                  transition: 'all 0.2s'
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                  border: isActive ? '1px solid rgba(244, 146, 158, 0.2)' : '1px solid transparent'
                 }}
+                className="admin-nav-link"
               >
-                {item.icon}
+                <span style={{ color: isActive ? 'var(--color-primary)' : 'rgba(255, 255, 255, 0.45)' }}>{item.icon}</span>
                 {item.label}
               </Link>
             )
           })}
         </nav>
 
-        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-md)' }}>
+        {/* Sidebar Footer with Logout */}
+        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: 'var(--space-md)' }}>
           <Button 
             variant="ghost" 
             fullWidth 
-            leftIcon={<LogOut size={20} />}
+            leftIcon={<LogOut size={18} />}
             onClick={() => signOut({ callbackUrl: '/' })}
-            style={{ justifyContent: 'flex-start', color: 'var(--color-error)' }}
+            style={{ 
+              justifyContent: 'flex-start', 
+              color: '#EF7A88', 
+              fontSize: '14px', 
+              fontWeight: 500,
+              padding: '12px 16px',
+              backgroundColor: 'transparent'
+            }}
+            className="admin-logout-btn"
           >
-            Sair
+            Sair da Conta
           </Button>
         </div>
       </aside>
@@ -86,6 +117,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </div>
       </main>
+      <style>{`
+        .admin-logo-hover:hover {
+          transform: scale(1.03);
+        }
+        .admin-nav-link:hover {
+          color: var(--color-primary) !important;
+          background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+        .admin-logout-btn:hover {
+          background-color: rgba(239, 122, 136, 0.08) !important;
+        }
+      `}</style>
     </div>
     </AuthProvider>
   );

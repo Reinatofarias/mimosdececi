@@ -5,44 +5,54 @@ import { MapPin, Mail, Phone } from 'lucide-react';
 export function Footer() {
   return (
     <footer style={{ 
-      backgroundColor: 'var(--color-bg-warm)', 
-      borderTop: '1px solid var(--color-border)',
+      backgroundColor: '#111115', 
+      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
       paddingTop: 'var(--space-3xl)',
-      paddingBottom: 'var(--space-md)',
-      marginTop: 'auto'
+      paddingBottom: 'var(--space-xl)',
+      marginTop: 'auto',
+      color: 'rgba(255, 255, 255, 0.6)'
     }}>
       <div className="container">
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
           gap: 'var(--space-2xl)',
           marginBottom: 'var(--space-3xl)'
         }}>
           
           {/* Brand */}
-          <div>
-            <Link href="/" className="text-accent" style={{
-              fontSize: 'var(--text-3xl)',
-              display: 'block',
-              marginBottom: 'var(--space-md)'
-            }}>
-              Mimos de Ceci
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <Link href="/" style={{
+              display: 'inline-block',
+              transition: 'transform var(--transition-fast)'
+            }} className="footer-logo-hover">
+              <img 
+                src="/logo-white.png" 
+                alt="Mimos de Ceci" 
+                style={{ 
+                  height: '42px', 
+                  width: 'auto', 
+                  objectFit: 'contain',
+                  display: 'block'
+                }} 
+              />
             </Link>
-            <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-md)' }}>
-              Transformando momentos especiais em presentes inesquecíveis. Feitos com amor para cada ocasião.
+            <p style={{ lineHeight: 1.6, fontSize: '14px' }}>
+              Transformando momentos especiais em presentes inesquecíveis. Cestas e kits personalizados feitos com amor para cada ocasião especial.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" style={{ 
                 color: 'var(--color-primary)',
-                padding: 'var(--space-sm)',
-                backgroundColor: 'var(--color-primary-lightest)',
+                padding: '10px',
+                backgroundColor: 'rgba(244, 146, 158, 0.12)',
                 borderRadius: '50%',
-                display: 'inline-flex'
-              }}>
+                display: 'inline-flex',
+                transition: 'all 0.2s ease'
+              }} className="social-icon">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -60,29 +70,28 @@ export function Footer() {
 
           {/* Links */}
           <div>
-            <h3 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-lg)' }}>Links Úteis</h3>
-            <ul style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-              <li><Link href="/" style={{ color: 'var(--color-text-secondary)' }}>Início</Link></li>
-              <li><Link href="/catalogo" style={{ color: 'var(--color-text-secondary)' }}>Catálogo de Produtos</Link></li>
-              <li><Link href="/sobre" style={{ color: 'var(--color-text-secondary)' }}>Sobre a Mimos de Ceci</Link></li>
-              <li><Link href="/contato" style={{ color: 'var(--color-text-secondary)' }}>Contato</Link></li>
+            <h3 style={{ marginBottom: 'var(--space-lg)', fontSize: 'var(--text-lg)', color: '#FFFFFF', fontWeight: 600 }}>Links Úteis</h3>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li><Link href="/" style={{ transition: 'color 0.2s' }} className="footer-link">Início</Link></li>
+              <li><Link href="/catalogo" style={{ transition: 'color 0.2s' }} className="footer-link">Catálogo de Produtos</Link></li>
+              <li><Link href="/sobre" style={{ transition: 'color 0.2s' }} className="footer-link">Sobre Nós</Link></li>
             </ul>
           </div>
 
           {/* Contato */}
           <div>
-            <h3 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-lg)' }}>Contato</h3>
-            <ul style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', color: 'var(--color-text-secondary)' }}>
-                <Phone size={18} color="var(--color-primary)" />
+            <h3 style={{ marginBottom: 'var(--space-lg)', fontSize: 'var(--text-lg)', color: '#FFFFFF', fontWeight: 600 }}>Contato</h3>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', fontSize: '14px' }}>
+                <Phone size={16} color="var(--color-primary)" />
                 (81) 99226-5790
               </li>
-              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', color: 'var(--color-text-secondary)' }}>
-                <Mail size={18} color="var(--color-primary)" />
+              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', fontSize: '14px' }}>
+                <Mail size={16} color="var(--color-primary)" />
                 contato@mimosdececi.com.br
               </li>
-              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', color: 'var(--color-text-secondary)' }}>
-                <MapPin size={18} color="var(--color-primary)" />
+              <li style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', fontSize: '14px' }}>
+                <MapPin size={16} color="var(--color-primary)" />
                 Recife, PE
               </li>
             </ul>
@@ -92,15 +101,31 @@ export function Footer() {
 
         {/* Copyright */}
         <div style={{ 
-          borderTop: '1px solid var(--color-border)', 
-          paddingTop: 'var(--space-md)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)', 
+          paddingTop: 'var(--space-lg)',
           textAlign: 'center',
-          color: 'var(--color-text-muted)',
-          fontSize: 'var(--text-sm)'
+          color: 'rgba(255, 255, 255, 0.4)',
+          fontSize: '13px'
         }}>
           <p>© {new Date().getFullYear()} Mimos de Ceci. Todos os direitos reservados.</p>
         </div>
       </div>
+      <style>{`
+        .footer-logo-hover:hover {
+          transform: scale(1.03);
+        }
+        .footer-link {
+          color: rgba(255, 255, 255, 0.6) !important;
+        }
+        .footer-link:hover {
+          color: var(--color-primary) !important;
+        }
+        .social-icon:hover {
+          background-color: var(--color-primary) !important;
+          color: #FFFFFF !important;
+          transform: translateY(-2px);
+        }
+      `}</style>
     </footer>
   );
 }

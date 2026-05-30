@@ -6,11 +6,14 @@ import { Button } from '../ui/Button/Button';
 export function Header() {
   return (
     <header style={{ 
-      borderBottom: '1px solid var(--color-border)',
-      backgroundColor: 'var(--color-bg)',
+      borderBottom: '1px solid rgba(244, 146, 158, 0.12)',
+      backgroundColor: 'rgba(255, 255, 255, 0.82)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       position: 'sticky',
       top: 0,
-      zIndex: 100
+      zIndex: 100,
+      transition: 'all var(--transition-base)'
     }}>
       <div className="container" style={{
         display: 'flex',
@@ -20,11 +23,17 @@ export function Header() {
       }}>
         
         {/* Logo */}
-        <Link href="/" className="text-accent" style={{
-          fontSize: 'var(--text-3xl)',
-          textDecoration: 'none'
-        }}>
-          Mimos de Ceci
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', transition: 'transform var(--transition-fast)' }} className="logo-hover">
+          <img 
+            src="/logo.png" 
+            alt="Mimos de Ceci" 
+            style={{ 
+              height: '46px', 
+              width: 'auto', 
+              objectFit: 'contain',
+              display: 'block'
+            }} 
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -50,6 +59,9 @@ export function Header() {
       </div>
       <style>{`
         .show-on-mobile { display: none; }
+        .logo-hover:hover {
+          transform: scale(1.04);
+        }
         @media (max-width: 768px) {
           .hide-on-mobile { display: none !important; }
           .show-on-mobile { display: inline-flex !important; }
