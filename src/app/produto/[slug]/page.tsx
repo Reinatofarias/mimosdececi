@@ -9,11 +9,12 @@ import { Footer } from '@/components/layout/Footer';
 export const revalidate = 60; // Revalida a página a cada 60 segundos
 
 interface ProductPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const product = await getProductBySlug(params.slug);
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
 
   if (!product) {
     notFound();
