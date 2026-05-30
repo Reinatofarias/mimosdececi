@@ -51,26 +51,7 @@ export function HeroSection() {
         zIndex: 1
       }}>
         
-        {/* Premium Badge Tag */}
-        <div style={{
-          backgroundColor: 'var(--color-primary-lighter)',
-          color: 'var(--color-primary-darkest)',
-          padding: '6px 16px',
-          borderRadius: 'var(--radius-full)',
-          fontSize: '11px',
-          fontWeight: 700,
-          textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          marginBottom: 'var(--space-xs)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          boxShadow: '0 2px 8px rgba(244, 146, 158, 0.15)',
-          border: '1px solid rgba(244, 146, 158, 0.3)'
-        }}>
-          ✨ Presentes Personalizados Com Afeto
-        </div>
-        
+
         {/* Custom Decorative Heading */}
         <h1 style={{ 
           fontSize: 'var(--text-5xl)', 
