@@ -54,3 +54,51 @@ export async function uploadImage(formData: FormData) {
 
   return { success: true, url: publicUrlData.publicUrl };
 }
+
+export async function updateProduct(id: string, data: Partial<{
+  name: string;
+  slug: string;
+  description: string;
+  short_description: string;
+  price: number;
+  original_price: number | null;
+  images: string[];
+  featured: boolean;
+  active: boolean;
+}>) {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase
+    .from('products')
+    .update(data)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erro ao atualizar produto:', error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/');
+  revalidatePath('/admin/produtos');
+  revalidatePath('/catalogo');
+  return { success: true };
+}
+
+export async function deleteProduct(id: string) {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erro ao excluir produto:', error);
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/');
+  revalidatePath('/admin/produtos');
+  revalidatePath('/catalogo');
+  return { success: true };
+}

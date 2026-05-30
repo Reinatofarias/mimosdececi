@@ -19,10 +19,13 @@ export function WhatsAppButton({ productName, productPrice }: WhatsAppButtonProp
     }).format(cents / 100);
   };
 
-  const message = `Oi Ceci! Gostaria de encomendar o presente: *${productName}* (${formatPrice(productPrice)}).`;
-  
-  const encodedMessage = encodeURIComponent(message);
-  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+  const handleWhatsAppClick = () => {
+    const pageUrl = window.location.href;
+    const message = `Oi Ceci! Gostaria de encomendar o presente: *${productName}* (${formatPrice(productPrice)}).\nLink: ${pageUrl}`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   return (
     <Button 
@@ -30,7 +33,7 @@ export function WhatsAppButton({ productName, productPrice }: WhatsAppButtonProp
       size="lg" 
       fullWidth 
       leftIcon={<Phone size={20} />}
-      onClick={() => window.open(whatsappUrl, '_blank')}
+      onClick={handleWhatsAppClick}
       style={{
         backgroundColor: '#25D366', // Verde do WhatsApp
         borderColor: '#25D366',

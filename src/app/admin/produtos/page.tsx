@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getProducts } from '@/lib/dal/products';
 import { Button } from '@/components/ui/Button/Button';
 import { Plus } from 'lucide-react';
+import { DeleteProductButton } from './DeleteProductButton';
 
 export const revalidate = 0; // Para sempre ver os mais recentes no admin
 
@@ -55,8 +56,11 @@ export default async function AdminProductsPage() {
                   <td style={{ padding: 'var(--space-md)' }}>
                     {product.active ? 'Ativo' : 'Inativo'}
                   </td>
-                  <td style={{ padding: 'var(--space-md)', textAlign: 'right' }}>
-                    <Button variant="ghost" size="sm">Editar</Button>
+                  <td style={{ padding: 'var(--space-md)', textAlign: 'right', display: 'flex', gap: 'var(--space-xs)', justifyContent: 'flex-end' }}>
+                    <Link href={`/admin/produtos/${product.id}/editar`}>
+                      <Button variant="ghost" size="sm">Editar</Button>
+                    </Link>
+                    <DeleteProductButton productId={product.id} />
                   </td>
                 </tr>
               ))
