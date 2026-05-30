@@ -1,0 +1,97 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--text-base);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tamanhos */
+.size-sm {
+  height: 32px;
+  padding: 0 var(--space-md);
+  font-size: var(--text-sm);
+}
+
+.size-md {
+  height: 48px;
+  padding: 0 var(--space-xl);
+}
+
+.size-lg {
+  height: 56px;
+  padding: 0 var(--space-2xl);
+  font-size: var(--text-lg);
+}
+
+/* Variantes */
+.variant-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.variant-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.variant-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.variant-secondary {
+  background-color: var(--color-secondary-lighter);
+  color: var(--color-text);
+}
+
+.variant-secondary:hover:not(:disabled) {
+  background-color: var(--color-secondary-light);
+}
+
+.variant-outline {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.variant-outline:hover:not(:disabled) {
+  background-color: var(--color-primary-lightest);
+}
+
+.variant-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.variant-ghost:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.variant-whatsapp {
+  background-color: var(--color-whatsapp);
+  color: white;
+}
+
+.variant-whatsapp:hover:not(:disabled) {
+  background-color: var(--color-whatsapp-hover);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Full Width */
+.fullWidth {
+  width: 100%;
+}
