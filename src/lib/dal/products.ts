@@ -2,7 +2,7 @@ import { createClient } from '../supabase/server';
 import type { Product } from '../types/database';
 
 export async function getProducts(): Promise<Product[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -18,7 +18,7 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
     .select('*')
