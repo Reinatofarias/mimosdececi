@@ -61,7 +61,7 @@
   --font-display: var(--font-playfair), 'Playfair Display', serif;
   --font-body: var(--font-inter), 'Inter', sans-serif;
   --font-accent: var(--font-dancing-script), 'Dancing Script', cursive;
-  --font-admin: var(--font-outfit), 'Outfit', sans-serif;
+  --font-admin: var(--font-inter), 'Inter', sans-serif;
   
   /* Tamanhos */
   --text-xs: 0.75rem;      /* 12px */

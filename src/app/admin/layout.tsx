@@ -118,6 +118,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </main>
       <style>{`
+        h1, h2, h3, h4, h5, h6 {
+          font-family: var(--font-admin) !important;
+        }
         .admin-logo-hover:hover {
           transform: scale(1.03);
         }
