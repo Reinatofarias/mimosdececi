@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/server';
+import { createAdminClient } from '../supabase/admin';
 
 export type Order = {
   id: string;
@@ -15,7 +15,7 @@ export type Order = {
 };
 
 export async function getOrders(): Promise<Order[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('orders')
     .select('*')

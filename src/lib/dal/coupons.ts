@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/server';
+import { createAdminClient } from '../supabase/admin';
 
 export type Coupon = {
   id: string;
@@ -11,7 +11,7 @@ export type Coupon = {
 };
 
 export async function getCoupons(): Promise<Coupon[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('coupons')
     .select('*')
