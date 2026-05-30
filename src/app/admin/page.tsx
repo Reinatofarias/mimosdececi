@@ -1,5 +1,6 @@
 import React from 'react';
 import { getProducts } from '@/lib/dal/products';
+import { getOrders } from '@/lib/dal/orders';
 
 export const revalidate = 0;
 
@@ -7,6 +8,10 @@ export default async function AdminDashboard() {
   const products = await getProducts();
   const activeProducts = products.filter(p => p.active);
   const featuredProducts = products.filter(p => p.featured);
+
+  const orders = await getOrders();
+  const pendingOrders = orders.filter(o => ['new', 'confirmed', 'in_production'].includes(o.status));
+  const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
   return (
     <div>
@@ -41,6 +46,20 @@ export default async function AdminDashboard() {
           <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)' }}>Em Destaque</h3>
           <p style={{ fontSize: 'var(--text-4xl)', fontWeight: 700, marginTop: 'var(--space-sm)', color: 'var(--color-accent)' }}>
             {featuredProducts.length}
+          </p>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', borderLeft: '4px solid #FFC107' }}>
+          <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)' }}>Pedidos Pendentes</h3>
+          <p style={{ fontSize: 'var(--text-4xl)', fontWeight: 700, marginTop: 'var(--space-sm)' }}>
+            {pendingOrders.length}
+          </p>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', borderLeft: '4px solid #4CAF50' }}>
+          <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-secondary)' }}>Pedidos Entregues</h3>
+          <p style={{ fontSize: 'var(--text-4xl)', fontWeight: 700, marginTop: 'var(--space-sm)' }}>
+            {deliveredOrders.length}
           </p>
         </div>
 

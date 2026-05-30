@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { Package, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { Package, LayoutDashboard, Settings, LogOut, Ticket, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/Button/Button';
 
 import { AuthProvider } from '@/components/AuthProvider';
@@ -14,7 +14,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { href: '/admin/pedidos', label: 'Pedidos (CRM)', icon: <ClipboardList size={20} /> },
     { href: '/admin/produtos', label: 'Produtos', icon: <Package size={20} /> },
+    { href: '/admin/cupons', label: 'Cupons', icon: <Ticket size={20} /> },
     { href: '/admin/configuracoes', label: 'Configurações', icon: <Settings size={20} /> },
   ];
 
