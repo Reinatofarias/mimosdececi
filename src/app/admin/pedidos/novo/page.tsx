@@ -14,6 +14,8 @@ export default function NovoPedidoPage() {
     customer_phone: '',
     notes: '',
     total_price: '',
+    payment_method: 'pix',
+    payment_status: 'pending',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,6 +30,8 @@ export default function NovoPedidoPage() {
         customer_phone: formData.customer_phone,
         notes: formData.notes,
         total_price: priceCents,
+        payment_method: formData.payment_method,
+        payment_status: formData.payment_status,
       });
 
       if (result.success) {
@@ -92,6 +96,34 @@ export default function NovoPedidoPage() {
                 style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
                 placeholder="Ex: 165.00"
               />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Forma de Pagamento</label>
+                <select 
+                  value={formData.payment_method}
+                  onChange={e => setFormData({...formData, payment_method: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                >
+                  <option value="pix">PIX</option>
+                  <option value="credit_card">Cartão de Crédito</option>
+                  <option value="debit_card">Cartão de Débito</option>
+                  <option value="cash">Dinheiro</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Status do Pagamento</label>
+                <select 
+                  value={formData.payment_status}
+                  onChange={e => setFormData({...formData, payment_status: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                >
+                  <option value="pending">Aguardando Pagamento</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </div>
             </div>
 
             <div>

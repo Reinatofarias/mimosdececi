@@ -7,6 +7,8 @@ export type Order = {
   status: 'new' | 'confirmed' | 'in_production' | 'ready' | 'delivered' | 'cancelled';
   notes: string;
   total_price: number;
+  payment_method: string;
+  payment_status: string;
   coupon_code: string | null;
   discount_amount: number;
   cancelled_reason: string | null;

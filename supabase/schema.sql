@@ -67,6 +67,8 @@ CREATE TABLE orders (
   status order_status DEFAULT 'new',
   notes TEXT DEFAULT '',
   total_price INTEGER DEFAULT 0,
+  payment_method TEXT DEFAULT 'pix',
+  payment_status TEXT DEFAULT 'pending',
   coupon_code TEXT,
   discount_amount INTEGER DEFAULT 0,
   cancelled_reason TEXT,
