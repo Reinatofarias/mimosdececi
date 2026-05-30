@@ -1,5 +1,4 @@
 import { createClient } from '../supabase/server';
-import type { Database } from '../types/database';
 
 export type Order = {
   id: string;
