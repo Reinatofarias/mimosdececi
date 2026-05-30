@@ -2,6 +2,7 @@ import React from 'react';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '@/lib/dal/products';
+import { ProductGallery } from '@/components/ui/ProductGallery/ProductGallery';
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton/WhatsAppButton';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -46,31 +47,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
             boxShadow: 'var(--shadow-md)',
           }}>
             
-            {/* Esquerda: Imagem */}
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <Image 
-                src={imageSrc} 
-                alt={product.name}
-                fill
-                style={{ objectFit: 'cover' }}
-                priority
-              />
-              {hasDiscount && (
-                <div style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  backgroundColor: 'var(--color-promo-bg)',
-                  color: 'var(--color-promo-text)',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontWeight: 600,
-                  fontSize: 'var(--text-sm)'
-                }}>
-                  Oferta Especial
-                </div>
-              )}
-            </div>
+            {/* Esquerda: Imagem com Galeria Interativa */}
+            <ProductGallery 
+              images={product.images || []} 
+              productName={product.name} 
+              hasDiscount={hasDiscount || false} 
+            />
 
             {/* Direita: Informações */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
