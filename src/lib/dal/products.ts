@@ -34,3 +34,20 @@ export async function getFeaturedProducts(): Promise<Product[]> {
 
   return data as Product[];
 }
+
+export async function getProductBySlug(slug: string): Promise<Product | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('slug', slug)
+    .eq('active', true)
+    .single();
+
+  if (error) {
+    console.error('Error fetching product by slug:', error);
+    return null;
+  }
+
+  return data as Product;
+}
