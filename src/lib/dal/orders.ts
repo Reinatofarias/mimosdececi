@@ -31,3 +31,23 @@ export async function getOrders(): Promise<Order[]> {
 
   return data as Order[];
 }
+
+export async function getAllOrderItems() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(`
+      product_name,
+      quantity,
+      product_price,
+      orders!inner(status)
+    `)
+    .neq('orders.status', 'cancelled');
+
+  if (error) {
+    console.error('Error fetching order items:', error);
+    return [];
+  }
+
+  return data;
+}

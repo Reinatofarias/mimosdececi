@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 
-export function FloatingWhatsApp() {
+export function FloatingWhatsApp({ phoneNumber = '5581992265790' }: { phoneNumber?: string }) {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -20,7 +20,6 @@ export function FloatingWhatsApp() {
     return () => clearTimeout(timer);
   }, []);
 
-  const phoneNumber = '5581992265790';
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=Olá! Gostaria de falar sobre os mimos da Ceci.`;
 
   return (

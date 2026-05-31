@@ -15,6 +15,7 @@ export async function createProduct(data: {
   images: string[];
   featured: boolean;
   active: boolean;
+  category_id?: string | null;
 }) {
   const parsedData = productSchema.safeParse(data);
   if (!parsedData.success) {
@@ -86,6 +87,7 @@ export async function updateProduct(id: string, data: Partial<{
   images: string[];
   featured: boolean;
   active: boolean;
+  category_id?: string | null;
 }>) {
   const supabase = createAdminClient();
 

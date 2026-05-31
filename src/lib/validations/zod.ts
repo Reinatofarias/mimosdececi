@@ -8,6 +8,7 @@ export const productSchema = z.object({
   price: z.number().min(0, "Preço não pode ser negativo"),
   cost_price: z.number().min(0).optional(),
   original_price: z.number().nullable().optional(),
+  category_id: z.string().nullable().optional(),
   images: z.array(z.string()).default([]),
   featured: z.boolean().default(false),
   active: z.boolean().default(true),

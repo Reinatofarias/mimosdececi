@@ -9,9 +9,10 @@ import type { Product } from '@/lib/types/database';
 
 interface EditProductFormProps {
   product: Product;
+  categories: any[];
 }
 
-export function EditProductForm({ product }: EditProductFormProps) {
+export function EditProductForm({ product, categories }: EditProductFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [existingImages, setExistingImages] = useState<string[]>(product.images || []);
@@ -25,6 +26,7 @@ export function EditProductForm({ product }: EditProductFormProps) {
     price: (product.price / 100).toFixed(2).replace('.', ','),
     cost_price: product.cost_price ? (product.cost_price / 100).toFixed(2).replace('.', ',') : '',
     original_price: product.original_price ? (product.original_price / 100).toFixed(2).replace('.', ',') : '',
+    category_id: product.category_id || '',
     featured: product.featured || false,
     active: product.active || false,
   });
@@ -90,6 +92,7 @@ export function EditProductForm({ product }: EditProductFormProps) {
         price: priceCents,
         cost_price: costPriceCents,
         original_price: originalPriceCents,
+        category_id: formData.category_id || null,
         images: allImages,
         featured: formData.featured,
         active: formData.active
@@ -138,6 +141,20 @@ export function EditProductForm({ product }: EditProductFormProps) {
               onChange={e => setFormData({...formData, short_description: e.target.value})}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Categoria</label>
+            <select 
+              value={formData.category_id}
+              onChange={e => setFormData({...formData, category_id: e.target.value})}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none', backgroundColor: 'white' }}
+            >
+              <option value="">Nenhuma / Sem Categoria</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
 import { createProduct, uploadImage } from '../actions';
+import { fetchCategories } from '@/app/admin/categorias/actions';
 import { UploadCloud } from 'lucide-react';
 
 export default function NovoProduto() {
@@ -11,6 +12,11 @@ export default function NovoProduto() {
   const [loading, setLoading] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetchCategories().then(setCategories);
+  }, []);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -19,6 +25,7 @@ export default function NovoProduto() {
     price: '',
     cost_price: '',
     original_price: '',
+    category_id: '',
     featured: false,
     active: true,
   });
@@ -79,6 +86,7 @@ export default function NovoProduto() {
         price: priceCents,
         cost_price: costPriceCents,
         original_price: originalPriceCents,
+        category_id: formData.category_id || undefined,
         images: imageUrls,
         featured: formData.featured,
         active: formData.active
@@ -132,6 +140,20 @@ export default function NovoProduto() {
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
                 placeholder="Ex: Deliciosa cesta para começar o dia bem."
               />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Categoria</label>
+              <select 
+                value={formData.category_id}
+                onChange={e => setFormData({...formData, category_id: e.target.value})}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none', backgroundColor: 'white' }}
+              >
+                <option value="">Nenhuma / Sem Categoria</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>

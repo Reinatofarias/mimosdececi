@@ -1,7 +1,7 @@
 import React from 'react';
 import { getProducts } from '@/lib/dal/products';
-import { getOrders } from '@/lib/dal/orders';
-import { Package, Ticket, ClipboardCheck, Clock, TrendingUp } from 'lucide-react';
+import { getOrders, getAllOrderItems } from '@/lib/dal/orders';
+import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy } from 'lucide-react';
 
 export const revalidate = 0;
 
@@ -31,6 +31,19 @@ export default async function AdminDashboard() {
   const faturamentoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(faturamentoCentavos / 100);
   const custoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoCentavos / 100);
   const lucroStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lucroCentavos / 100);
+
+  const orderItems = await getAllOrderItems();
+  const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
+  
+  orderItems.forEach((item: any) => {
+    if (!productStats[item.product_name]) {
+      productStats[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 };
+    }
+    productStats[item.product_name].quantity += item.quantity || 1;
+    productStats[item.product_name].revenue += (item.product_price || 0) * (item.quantity || 1);
+  });
+
+  const topProducts = Object.values(productStats).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
 
 
   return (
@@ -245,6 +258,38 @@ export default async function AdminDashboard() {
         </div>
 
       </div>
+
+      {/* Top Produtos */}
+      <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginTop: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-md)' }}>
+          <Trophy size={20} color="#E4B363" />
+          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Produtos Mais Vendidos (Geral)</h2>
+        </div>
+        
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <th style={{ padding: '12px 0', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Mimo</th>
+              <th style={{ padding: '12px 0', fontWeight: 600, color: 'var(--color-text-secondary)', textAlign: 'center' }}>Qtd Vendida</th>
+              <th style={{ padding: '12px 0', fontWeight: 600, color: 'var(--color-text-secondary)', textAlign: 'right' }}>Faturamento (R$)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topProducts.length === 0 ? (
+              <tr><td colSpan={3} style={{ padding: '24px 0', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Nenhuma venda registrada ainda.</td></tr>
+            ) : topProducts.map((p, index) => (
+              <tr key={index} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                <td style={{ padding: '12px 0', fontWeight: 500, color: 'var(--color-text)' }}>{p.name}</td>
+                <td style={{ padding: '12px 0', textAlign: 'center', color: 'var(--color-text-secondary)' }}>{p.quantity}</td>
+                <td style={{ padding: '12px 0', textAlign: 'right', fontWeight: 600, color: 'var(--color-primary-darker)' }}>
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.revenue / 100)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
     </div>
   );
 }
