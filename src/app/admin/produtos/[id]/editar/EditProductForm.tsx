@@ -23,6 +23,7 @@ export function EditProductForm({ product }: EditProductFormProps) {
     description: product.description || '',
     short_description: product.short_description || '',
     price: (product.price / 100).toFixed(2).replace('.', ','),
+    cost_price: product.cost_price ? (product.cost_price / 100).toFixed(2).replace('.', ',') : '',
     original_price: product.original_price ? (product.original_price / 100).toFixed(2).replace('.', ',') : '',
     featured: product.featured || false,
     active: product.active || false,
@@ -72,6 +73,9 @@ export function EditProductForm({ product }: EditProductFormProps) {
       const allImages = [...existingImages, ...uploadedUrls];
 
       const priceCents = Math.round(parseFloat(formData.price.replace(',', '.')) * 100);
+      const costPriceCents = formData.cost_price 
+        ? Math.round(parseFloat(formData.cost_price.replace(',', '.')) * 100) 
+        : 0;
       const originalPriceCents = formData.original_price 
         ? Math.round(parseFloat(formData.original_price.replace(',', '.')) * 100) 
         : null;
@@ -84,6 +88,7 @@ export function EditProductForm({ product }: EditProductFormProps) {
         description: formData.description,
         short_description: formData.short_description,
         price: priceCents,
+        cost_price: costPriceCents,
         original_price: originalPriceCents,
         images: allImages,
         featured: formData.featured,
@@ -174,6 +179,19 @@ export function EditProductForm({ product }: EditProductFormProps) {
                 value={formData.original_price}
                 onChange={e => setFormData({...formData, original_price: e.target.value})}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
+                placeholder="Preço antigo"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Custo de Produção/Compra (R$)</label>
+              <input 
+                type="number" 
+                step="0.01"
+                value={formData.cost_price}
+                onChange={e => setFormData({...formData, cost_price: e.target.value})}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
+                placeholder="Quanto custou para fazer/comprar"
               />
             </div>
           </div>

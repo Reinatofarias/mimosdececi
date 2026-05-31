@@ -25,7 +25,7 @@ export function OrderForm({ products }: OrderFormProps) {
     payment_status: 'pending',
   });
 
-  const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; product_price: number; quantity: number }[]>([]);
+  const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; product_price: number; cost_price: number; quantity: number }[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
 
   const handleAddProduct = () => {
@@ -38,7 +38,7 @@ export function OrderForm({ products }: OrderFormProps) {
       if (existing) {
         return prev.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
-      return [...prev, { product_id: product.id, product_name: product.name, product_price: product.price, quantity: 1 }];
+      return [...prev, { product_id: product.id, product_name: product.name, product_price: product.price, cost_price: product.cost_price || 0, quantity: 1 }];
     });
 
     setSelectedProductId('');
@@ -48,10 +48,19 @@ export function OrderForm({ products }: OrderFormProps) {
     setSelectedItems(prev => prev.filter(item => item.product_id !== productId));
   };
 
-  const handleCalculateTotal = () => {
-    const total = selectedItems.reduce((sum, item) => sum + (item.product_price * item.quantity), 0);
-    setFormData(prev => ({ ...prev, total_price: (total / 100).toFixed(2) }));
-  };
+  // Auto-calculate totals whenever items change
+  React.useEffect(() => {
+    if (selectedItems.length > 0) {
+      const totalPrice = selectedItems.reduce((sum, item) => sum + (item.product_price * item.quantity), 0);
+      const totalCost = selectedItems.reduce((sum, item) => sum + (item.cost_price * item.quantity), 0);
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        total_price: (totalPrice / 100).toFixed(2),
+        total_cost: (totalCost / 100).toFixed(2)
+      }));
+    }
+  }, [selectedItems]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,12 +173,6 @@ export function OrderForm({ products }: OrderFormProps) {
                   </li>
                 ))}
               </ul>
-              
-              <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                <Button type="button" variant="ghost" size="sm" onClick={handleCalculateTotal} style={{ color: 'var(--color-primary)' }}>
-                  Calcular Total Automaticamente
-                </Button>
-              </div>
             </div>
           )}
 

@@ -37,6 +37,7 @@ CREATE TABLE products (
   description TEXT DEFAULT '',
   short_description TEXT DEFAULT '',
   price INTEGER NOT NULL,            -- Preço em centavos (ex: 5000 = R$ 50,00)
+  cost_price INTEGER DEFAULT 0,      -- Custo de produção em centavos
   original_price INTEGER,
   images TEXT[] DEFAULT '{}',
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,

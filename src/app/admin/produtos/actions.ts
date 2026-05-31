@@ -9,6 +9,7 @@ export async function createProduct(data: {
   description: string;
   short_description: string;
   price: number;
+  cost_price?: number;
   original_price: number | null;
   images: string[];
   featured: boolean;
@@ -73,6 +74,7 @@ export async function updateProduct(id: string, data: Partial<{
   description: string;
   short_description: string;
   price: number;
+  cost_price?: number;
   original_price: number | null;
   images: string[];
   featured: boolean;

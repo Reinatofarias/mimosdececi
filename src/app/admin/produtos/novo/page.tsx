@@ -17,6 +17,7 @@ export default function NovoProduto() {
     description: '',
     short_description: '',
     price: '',
+    cost_price: '',
     original_price: '',
     featured: false,
     active: true,
@@ -63,6 +64,9 @@ export default function NovoProduto() {
       const originalPriceCents = formData.original_price 
         ? Math.round(parseFloat(formData.original_price.replace(',', '.')) * 100) 
         : null;
+      const costPriceCents = formData.cost_price 
+        ? Math.round(parseFloat(formData.cost_price.replace(',', '.')) * 100) 
+        : 0;
 
       // Generate a simple slug
       const slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now();
@@ -73,6 +77,7 @@ export default function NovoProduto() {
         description: formData.description,
         short_description: formData.short_description,
         price: priceCents,
+        cost_price: costPriceCents,
         original_price: originalPriceCents,
         images: imageUrls,
         featured: formData.featured,
@@ -171,6 +176,18 @@ export default function NovoProduto() {
                   onChange={e => setFormData({...formData, original_price: e.target.value})}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
                   placeholder="Preço antigo para mostrar promoção"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Custo de Produção/Compra (R$)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.cost_price}
+                  onChange={e => setFormData({...formData, cost_price: e.target.value})}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', outline: 'none' }}
+                  placeholder="Quanto custou para fazer/comprar"
                 />
               </div>
             </div>

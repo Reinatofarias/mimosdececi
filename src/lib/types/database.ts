@@ -17,6 +17,7 @@ export interface Product {
   description: string;
   short_description: string;
   price: number;
+  cost_price?: number;
   original_price: number | null;
   images: string[];
   category_id: string | null;
