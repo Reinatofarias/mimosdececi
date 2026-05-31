@@ -31,28 +31,40 @@ export async function createProduct(data: {
 }
 
 export async function uploadImage(formData: FormData) {
-  const file = formData.get('file') as File;
-  if (!file) return { success: false, error: 'No file provided' };
+  try {
+    const file = formData.get('file') as File;
+    if (!file) return { success: false, error: 'No file provided' };
 
-  const supabase = createAdminClient();
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-  const filePath = `products/${fileName}`;
+    const supabase = createAdminClient();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const filePath = `products/${fileName}`;
 
-  const { data, error } = await supabase.storage
-    .from('product-images')
-    .upload(filePath, file);
+    // Convert standard File object to a Buffer to ensure it works correctly in Node.js server environment
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-  if (error) {
-    console.error('Erro ao fazer upload:', error);
-    return { success: false, error: error.message };
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, buffer, {
+        contentType: file.type || 'image/jpeg',
+        duplex: 'half'
+      });
+
+    if (error) {
+      console.error('Erro ao fazer upload no Supabase:', error);
+      return { success: false, error: error.message };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+
+    return { success: true, url: publicUrlData.publicUrl };
+  } catch (error: any) {
+    console.error('Erro inesperado na Server Action uploadImage:', error);
+    return { success: false, error: error.message || 'Erro inesperado no servidor' };
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('product-images')
-    .getPublicUrl(filePath);
-
-  return { success: true, url: publicUrlData.publicUrl };
 }
 
 export async function updateProduct(id: string, data: Partial<{
