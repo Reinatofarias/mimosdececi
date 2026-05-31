@@ -1,0 +1,260 @@
+"use client";
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button/Button';
+import { createOrder } from '../actions';
+import { PackagePlus, X } from 'lucide-react';
+import type { Product } from '@/lib/types/database';
+
+interface OrderFormProps {
+  products: Product[];
+}
+
+export function OrderForm({ products }: OrderFormProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    customer_name: '',
+    customer_phone: '',
+    notes: '',
+    total_price: '',
+    total_cost: '',
+    payment_method: 'pix',
+    payment_status: 'pending',
+  });
+
+  const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; product_price: number; quantity: number }[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+
+  const handleAddProduct = () => {
+    if (!selectedProductId) return;
+    const product = products.find(p => p.id === selectedProductId);
+    if (!product) return;
+
+    setSelectedItems(prev => {
+      const existing = prev.find(item => item.product_id === product.id);
+      if (existing) {
+        return prev.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { product_id: product.id, product_name: product.name, product_price: product.price, quantity: 1 }];
+    });
+
+    setSelectedProductId('');
+  };
+
+  const handleRemoveProduct = (productId: string) => {
+    setSelectedItems(prev => prev.filter(item => item.product_id !== productId));
+  };
+
+  const handleCalculateTotal = () => {
+    const total = selectedItems.reduce((sum, item) => sum + (item.product_price * item.quantity), 0);
+    setFormData(prev => ({ ...prev, total_price: (total / 100).toFixed(2) }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const priceCents = Math.round(parseFloat(formData.total_price.replace(',', '.')) * 100);
+      const costCents = formData.total_cost ? Math.round(parseFloat(formData.total_cost.replace(',', '.')) * 100) : 0;
+
+      const result = await createOrder({
+        customer_name: formData.customer_name,
+        customer_phone: formData.customer_phone,
+        notes: formData.notes,
+        total_price: priceCents,
+        total_cost: costCents,
+        payment_method: formData.payment_method,
+        payment_status: formData.payment_status,
+        items: selectedItems,
+      });
+
+      if (result.success) {
+        alert('Pedido registrado com sucesso!');
+        router.push('/admin/pedidos');
+      } else {
+        alert('Erro ao registrar pedido: ' + result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Ocorreu um erro inesperado.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: '600px' }}>
+      <h1 style={{ fontSize: 'var(--text-3xl)', marginBottom: 'var(--space-2xl)' }}>Registrar Novo Pedido</h1>
+      
+      <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-xl)' }}>
+        Anote aqui os dados do cliente que fechou a compra com você pelo WhatsApp para acompanhar a entrega.
+      </p>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+        
+        {/* Formulário do Cliente */}
+        <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Nome do Cliente *</label>
+              <input 
+                type="text" 
+                required 
+                value={formData.customer_name}
+                onChange={e => setFormData({...formData, customer_name: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                placeholder="Ex: Maria Silva"
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>WhatsApp do Cliente *</label>
+              <input 
+                type="text" 
+                required 
+                value={formData.customer_phone}
+                onChange={e => setFormData({...formData, customer_phone: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                placeholder="Ex: (81) 99999-9999"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Seleção de Produtos */}
+        <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+          <label style={{ display: 'block', marginBottom: '12px', fontWeight: 500, fontSize: '1.1rem' }}>Produtos do Pedido</label>
+          
+          <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-lg)' }}>
+            <select 
+              value={selectedProductId}
+              onChange={e => setSelectedProductId(e.target.value)}
+              style={{ flex: 1, padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+            >
+              <option value="">Selecione um produto cadastrado...</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} - R$ {(p.price / 100).toFixed(2).replace('.', ',')}
+                </option>
+              ))}
+            </select>
+            <Button type="button" variant="outline" onClick={handleAddProduct} disabled={!selectedProductId}>
+              <PackagePlus size={18} style={{ marginRight: '6px' }} /> Adicionar
+            </Button>
+          </div>
+
+          {selectedItems.length > 0 && (
+            <div style={{ marginBottom: 'var(--space-md)' }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {selectedItems.map((item, idx) => (
+                  <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--color-bg-warm)', padding: '8px 12px', borderRadius: 'var(--radius-md)' }}>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{item.quantity}x</span> {item.product_name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>R$ {((item.product_price * item.quantity) / 100).toFixed(2).replace('.', ',')}</span>
+                      <button type="button" onClick={() => handleRemoveProduct(item.product_id)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              
+              <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                <Button type="button" variant="ghost" size="sm" onClick={handleCalculateTotal} style={{ color: 'var(--color-primary)' }}>
+                  Calcular Total Automaticamente
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Valor Total Cobrado (R$) *</label>
+              <input 
+                type="number" 
+                step="0.01"
+                required 
+                value={formData.total_price}
+                onChange={e => setFormData({...formData, total_price: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                placeholder="Ex: 165.00"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Custo dos Materiais (R$)</label>
+              <input 
+                type="number" 
+                step="0.01"
+                value={formData.total_cost}
+                onChange={e => setFormData({...formData, total_cost: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                placeholder="Ex: 45.50"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Pagamento e Anotações */}
+        <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Forma de Pagamento</label>
+                <select 
+                  value={formData.payment_method}
+                  onChange={e => setFormData({...formData, payment_method: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                >
+                  <option value="pix">PIX</option>
+                  <option value="credit_card">Cartão de Crédito</option>
+                  <option value="debit_card">Cartão de Débito</option>
+                  <option value="cash">Dinheiro</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Status do Pagamento</label>
+                <select 
+                  value={formData.payment_status}
+                  onChange={e => setFormData({...formData, payment_status: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                >
+                  <option value="pending">Aguardando Pagamento</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Anotações Especiais (Endereço, cartão, etc)</label>
+              <textarea 
+                rows={4}
+                value={formData.notes}
+                onChange={e => setFormData({...formData, notes: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', resize: 'vertical' }}
+                placeholder="O que mais você precisa lembrar deste pedido?"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-md)' }}>
+          <Button type="button" variant="ghost" onClick={() => router.back()} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" size="lg" isLoading={loading}>
+            Salvar Pedido
+          </Button>
+        </div>
+
+      </form>
+    </div>
+  );
+}

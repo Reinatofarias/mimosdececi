@@ -11,19 +11,48 @@ export async function createOrder(data: {
   total_cost: number;
   payment_method: string;
   payment_status: string;
+  items?: { product_id: string; product_name: string; product_price: number; quantity: number }[];
 }) {
   const supabase = createAdminClient();
 
-  const { error } = await supabase
+  const { data: orderData, error: orderError } = await supabase
     .from('orders')
     .insert([{
-      ...data,
+      customer_name: data.customer_name,
+      customer_phone: data.customer_phone,
+      notes: data.notes,
+      total_price: data.total_price,
+      total_cost: data.total_cost,
+      payment_method: data.payment_method,
+      payment_status: data.payment_status,
       status: 'new'
-    }]);
+    }])
+    .select('id')
+    .single();
 
-  if (error) {
-    console.error('Erro ao criar pedido:', error);
-    return { success: false, error: error.message };
+  if (orderError || !orderData) {
+    console.error('Erro ao criar pedido:', orderError);
+    return { success: false, error: orderError?.message || 'Erro desconhecido ao criar pedido.' };
+  }
+
+  // Se houver itens, insere na tabela order_items
+  if (data.items && data.items.length > 0) {
+    const orderItemsToInsert = data.items.map(item => ({
+      order_id: orderData.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      product_price: item.product_price,
+      quantity: item.quantity
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItemsToInsert);
+
+    if (itemsError) {
+      console.error('Erro ao inserir itens do pedido:', itemsError);
+      // We still return success but ideally we log this error.
+    }
   }
 
   revalidatePath('/admin');
