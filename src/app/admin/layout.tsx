@@ -17,7 +17,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/pedidos', label: 'Pedidos (CRM)', icon: <ClipboardList size={20} /> },
     { href: '/admin/produtos', label: 'Produtos', icon: <Package size={20} /> },
     { href: '/admin/cupons', label: 'Cupons', icon: <Ticket size={20} /> },
-    { href: '/admin/configuracoes', label: 'Configurações', icon: <Settings size={20} /> },
   ];
 
   return (

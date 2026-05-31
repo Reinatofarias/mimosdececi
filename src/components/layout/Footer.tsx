@@ -41,7 +41,7 @@ export function Footer() {
               Transformando momentos especiais em presentes inesquecíveis. Cestas e kits personalizados feitos com amor para cada ocasião especial.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" style={{ 
+              <a href="https://www.instagram.com/mimosdececioficial" target="_blank" rel="noopener noreferrer" style={{ 
                 color: 'var(--color-primary)',
                 padding: '10px',
                 backgroundColor: 'rgba(244, 146, 158, 0.12)',

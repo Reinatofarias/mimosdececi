@@ -1,5 +1,5 @@
 import React from 'react';
-import Image from 'next/image';
+import type { Metadata, ResolvingMetadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '@/lib/dal/products';
 import { ProductGallery } from '@/components/ui/ProductGallery/ProductGallery';
@@ -12,6 +12,41 @@ export const revalidate = 60; // Revalida a página a cada 60 segundos
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata(
+  { params }: ProductPageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+
+  if (!product) {
+    return {
+      title: 'Produto não encontrado | Mimos de Ceci',
+    };
+  }
+
+  const previousImages = (await parent).openGraph?.images || [];
+  const imageUrl = product.images?.[0] || '/logo.png';
+  const price = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price / 100);
+
+  return {
+    title: `${product.name} | Mimos de Ceci`,
+    description: product.short_description || product.description?.substring(0, 160) || `Compre ${product.name} por apenas ${price} na Mimos de Ceci.`,
+    openGraph: {
+      title: `${product.name} — ${price}`,
+      description: product.short_description || `Presenteie quem você ama com ${product.name}.`,
+      images: [imageUrl, ...previousImages],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${product.name} — ${price}`,
+      description: product.short_description,
+      images: [imageUrl],
+    }
+  };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
