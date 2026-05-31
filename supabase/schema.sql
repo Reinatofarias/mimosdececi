@@ -213,6 +213,16 @@ ALTER TABLE occasions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE showcase_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
+-- Proteção Máxima para Financeiro e Cupons (Sem política de leitura pública)
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promotion_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE promotion_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_occasions ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Public Products viewable" ON products FOR SELECT USING (active = true);
 CREATE POLICY "Public Categories viewable" ON categories FOR SELECT USING (active = true);
 CREATE POLICY "Public Promotions viewable" ON promotions FOR SELECT USING (active = true AND now() BETWEEN start_date AND end_date);
