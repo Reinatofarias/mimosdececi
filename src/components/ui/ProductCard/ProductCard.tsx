@@ -1,15 +1,19 @@
+"use client";
+
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Button } from '../Button/Button';
 import styles from './ProductCard.module.css';
 import type { Product } from '@/lib/types/database';
 
 interface ProductCardProps {
   product: Product;
+  index?: number;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, index = 0 }: ProductCardProps) {
   // Helpers para formatação de moeda
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -24,7 +28,13 @@ export function ProductCard({ product }: ProductCardProps) {
   const hasDiscount = product.original_price && product.original_price > product.price;
 
   return (
-    <article className={styles.card}>
+    <motion.article 
+      className={styles.card}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.1, ease: 'easeOut' }}
+      whileHover={{ y: -5 }}
+    >
       <Link href={`/produto/${product.slug}`} className={styles.imageContainer}>
         {hasDiscount && (
           <div className={styles.badge}>Oferta</div>
@@ -69,6 +79,6 @@ export function ProductCard({ product }: ProductCardProps) {
           </Button>
         </Link>
       </div>
-    </article>
+    </motion.article>
   );
 }

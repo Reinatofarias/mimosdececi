@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { orderSchema } from '@/lib/validations/zod';
 
 export async function createOrder(data: {
   customer_name: string;
@@ -13,6 +14,12 @@ export async function createOrder(data: {
   payment_status: string;
   items?: { product_id: string; product_name: string; product_price: number; quantity: number }[];
 }) {
+  const parsedData = orderSchema.safeParse(data);
+  if (!parsedData.success) {
+    console.error('Validation error:', parsedData.error);
+    return { success: false, error: 'Dados inválidos. Verifique os campos do formulário.' };
+  }
+
   const supabase = createAdminClient();
 
   const { data: orderData, error: orderError } = await supabase

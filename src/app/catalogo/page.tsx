@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { getProducts } from '@/lib/dal/products';
 import { ProductCard } from '@/components/ui/ProductCard/ProductCard';
+import { FadeIn } from '@/components/ui/FadeIn/FadeIn';
 
 export const revalidate = 60;
 
@@ -17,30 +18,32 @@ export default async function CatalogPage() {
         <div className="container">
           
           {/* Premium Page Header */}
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-3xl)' }}>
-            <span style={{ 
-              fontFamily: 'var(--font-accent)', 
-              color: 'var(--color-primary-darker)', 
-              fontSize: 'var(--text-2xl)',
-              display: 'block',
-              marginBottom: '4px'
-            }}>
-              Coleção de Afetos
-            </span>
-            <h1 style={{ 
-              fontSize: 'var(--text-4xl)', 
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              color: 'var(--color-text)',
-              margin: 0
-            }}>
-              Nosso Catálogo
-            </h1>
-            <p style={{ color: 'var(--color-text-secondary)', marginTop: 'var(--space-sm)', maxWidth: '600px', margin: '12px auto 0', fontSize: 'var(--text-base)' }}>
-              Explore nossos presentes e mimos artesanais exclusivos, preparados com todo carinho para tornar momentos especiais inesquecíveis.
-            </p>
-            <div style={{ width: '40px', height: '3px', backgroundColor: 'var(--color-primary)', margin: '16px auto 0', borderRadius: 'var(--radius-full)' }} />
-          </div>
+          <FadeIn>
+            <div style={{ textAlign: 'center', marginBottom: 'var(--space-3xl)' }}>
+              <span style={{ 
+                fontFamily: 'var(--font-accent)', 
+                color: 'var(--color-primary-darker)', 
+                fontSize: 'var(--text-2xl)',
+                display: 'block',
+                marginBottom: '4px'
+              }}>
+                Coleção de Afetos
+              </span>
+              <h1 style={{ 
+                fontSize: 'var(--text-4xl)', 
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                color: 'var(--color-text)',
+                margin: 0
+              }}>
+                Nosso Catálogo
+              </h1>
+              <p style={{ color: 'var(--color-text-secondary)', marginTop: 'var(--space-sm)', maxWidth: '600px', margin: '12px auto 0', fontSize: 'var(--text-base)' }}>
+                Explore nossos presentes e mimos artesanais exclusivos, preparados com todo carinho para tornar momentos especiais inesquecíveis.
+              </p>
+              <div style={{ width: '40px', height: '3px', backgroundColor: 'var(--color-primary)', margin: '16px auto 0', borderRadius: 'var(--radius-full)' }} />
+            </div>
+          </FadeIn>
 
           {/* Catalog Grid */}
           {products.length === 0 ? (
@@ -50,13 +53,9 @@ export default async function CatalogPage() {
               </div>
             </div>
           ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 'var(--space-xl)'
-            }}>
-              {products.map(product => (
-                <ProductCard key={product.id} product={product} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-xl)' }}>
+              {products.map((product, index) => (
+                <ProductCard key={product.id} product={product} index={index} />
               ))}
             </div>
           )}

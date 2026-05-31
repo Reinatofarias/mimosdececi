@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { productSchema } from '@/lib/validations/zod';
 
 export async function createProduct(data: {
   name: string;
@@ -15,6 +16,12 @@ export async function createProduct(data: {
   featured: boolean;
   active: boolean;
 }) {
+  const parsedData = productSchema.safeParse(data);
+  if (!parsedData.success) {
+    console.error('Validation error:', parsedData.error);
+    return { success: false, error: 'Dados inválidos. Verifique os campos do formulário.' };
+  }
+
   const supabase = createAdminClient();
 
   const { error } = await supabase

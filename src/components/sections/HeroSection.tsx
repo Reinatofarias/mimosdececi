@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '../ui/Button/Button';
 import { Gift, Info } from 'lucide-react';
 import Link from 'next/link';
+import { FadeIn } from '../ui/FadeIn/FadeIn';
 
 export function HeroSection() {
   return (
@@ -42,15 +43,26 @@ export function HeroSection() {
       }} />
 
       <div className="container" style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 'var(--space-md)',
-        maxWidth: '850px',
         position: 'relative',
-        zIndex: 1
+        zIndex: 1,
+        display: 'flex',
+        justifyContent: 'center'
       }}>
-        
+        <FadeIn delay={0.2} duration={0.8}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 'var(--space-md)',
+            maxWidth: '850px',
+            background: 'rgba(255, 255, 255, 0.4)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.6)',
+            borderRadius: 'var(--radius-2xl)',
+            padding: 'var(--space-2xl) var(--space-xl)',
+            boxShadow: '0 8px 32px rgba(244, 146, 158, 0.1)'
+          }}>
 
         {/* Custom Decorative Heading */}
         <h1 style={{ 
@@ -108,6 +120,8 @@ export function HeroSection() {
           </Link>
         </div>
 
+        </div>
+        </FadeIn>
       </div>
       <style>{`
         .hero-cta-btn:hover {
