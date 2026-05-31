@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Search } from 'lucide-react';
 import { Button } from '../ui/Button/Button';
+import { GlobalSearch } from '../ui/GlobalSearch/GlobalSearch';
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Close menu on route change / outside click
@@ -67,8 +69,19 @@ export function Header() {
             <Link href="/sobre" style={{ fontWeight: 500, color: 'var(--color-text-secondary)' }}>Sobre Nós</Link>
           </nav>
 
-          {/* Mobile hamburger */}
+          {/* Actions */}
           <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              style={{ padding: '0 8px' }}
+              onClick={() => setSearchOpen(true)}
+              aria-label="Buscar"
+            >
+              <Search size={20} />
+            </Button>
+
+            {/* Mobile hamburger */}
             <Button 
               variant="ghost" 
               size="sm" 
@@ -195,6 +208,9 @@ export function Header() {
           </div>
         </div>
       )}
+
+      {/* Global Search Modal */}
+      <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <style>{`
         .show-on-mobile { display: none; }

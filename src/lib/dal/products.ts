@@ -1,13 +1,18 @@
 import { createClient } from '../supabase/server';
 import type { Product } from '../types/database';
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(categoryId?: string): Promise<Product[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('products')
     .select('*')
-    .eq('active', true)
-    .order('sort_order', { ascending: true });
+    .eq('active', true);
+    
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+  
+  const { data, error } = await query.order('sort_order', { ascending: true });
 
   if (error) {
     console.error('Error fetching products:', error);

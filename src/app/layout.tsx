@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Dancing_Script, Outfit } from "next/font/google";
 import "./globals.css";
+import { FloatingWhatsApp } from '@/components/ui/FloatingWhatsApp/FloatingWhatsApp';
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -38,7 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${playfair.variable} ${dancingScript.variable} ${outfit.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <FloatingWhatsApp />
+      </body>
     </html>
   );
 }

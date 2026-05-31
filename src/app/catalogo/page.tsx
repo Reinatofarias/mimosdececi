@@ -5,10 +5,22 @@ import { getProducts } from '@/lib/dal/products';
 import { ProductCard } from '@/components/ui/ProductCard/ProductCard';
 import { FadeIn } from '@/components/ui/FadeIn/FadeIn';
 
-export const revalidate = 60;
+import { getCategories } from '@/lib/dal/categories';
+import { CategoryFilter } from '@/components/ui/CategoryFilter/CategoryFilter';
 
-export default async function CatalogPage() {
-  const products = await getProducts();
+export const revalidate = 0; // Dynamic because of search params
+
+interface CatalogPageProps {
+  searchParams: { categoria?: string };
+}
+
+export default async function CatalogPage({ searchParams }: CatalogPageProps) {
+  const categoryId = searchParams.categoria;
+  
+  const [products, categories] = await Promise.all([
+    getProducts(categoryId),
+    getCategories()
+  ]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--color-bg)' }}>
@@ -44,6 +56,9 @@ export default async function CatalogPage() {
               <div style={{ width: '40px', height: '3px', backgroundColor: 'var(--color-primary)', margin: '16px auto 0', borderRadius: 'var(--radius-full)' }} />
             </div>
           </FadeIn>
+
+          {/* Category Filter */}
+          <CategoryFilter categories={categories} />
 
           {/* Catalog Grid */}
           {products.length === 0 ? (
