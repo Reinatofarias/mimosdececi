@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Gift box body -->
+  <rect x="8" y="28" width="48" height="30" rx="4" ry="4" fill="#F4929E"/>
+  <!-- Gift box lid -->
+  <rect x="5" y="22" width="54" height="10" rx="3" ry="3" fill="#EF7A88"/>
+  <!-- Vertical ribbon -->
+  <rect x="28" y="22" width="8" height="36" fill="#E85D6E" opacity="0.5"/>
+  <!-- Horizontal ribbon -->
+  <rect x="5" y="24" width="54" height="6" fill="#E85D6E" opacity="0.3"/>
+  <!-- Bow left -->
+  <path d="M32 22 C26 16, 16 16, 16 20 C16 24, 26 24, 32 22Z" fill="#EF7A88"/>
+  <!-- Bow right -->
+  <path d="M32 22 C38 16, 48 16, 48 20 C48 24, 38 24, 32 22Z" fill="#EF7A88"/>
+  <!-- Bow top loops -->
+  <path d="M32 22 C28 10, 18 12, 20 18 C22 22, 30 22, 32 22Z" fill="#F4929E"/>
+  <path d="M32 22 C36 10, 46 12, 44 18 C42 22, 34 22, 32 22Z" fill="#F4929E"/>
+  <!-- Heart on box -->
+  <path d="M32 40 C28 34, 22 34, 22 38 C22 44, 32 50, 32 52 C32 50, 42 44, 42 38 C42 34, 36 34, 32 40Z" fill="white" opacity="0.85"/>
+  <!-- Bow center knot -->
+  <circle cx="32" cy="22" r="3" fill="#D44458"/>
+</svg>

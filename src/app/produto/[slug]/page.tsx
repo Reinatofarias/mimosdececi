@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getProductBySlug } from '@/lib/dal/products';
 import { ProductGallery } from '@/components/ui/ProductGallery/ProductGallery';
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton/WhatsAppButton';
+import { ShareButton } from '@/components/ui/ShareButton/ShareButton';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
@@ -61,17 +62,47 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </h1>
               
               <div style={{ marginBottom: 'var(--space-xl)' }}>
-                <span style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                  {formatPrice(product.price)}
-                </span>
-                {hasDiscount && (
+                {hasDiscount ? (
+                  <>
+                    <div style={{ 
+                      fontSize: 'var(--text-lg)', 
+                      color: 'var(--color-text-muted)',
+                      fontFamily: "var(--font-outfit), 'Outfit', sans-serif",
+                      marginBottom: '4px'
+                    }}>
+                      De: <span style={{ textDecoration: 'line-through', color: 'var(--color-original-price)' }}>
+                        {formatPrice(product.original_price!)}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ 
+                        fontSize: 'var(--text-lg)', 
+                        color: 'var(--color-text-secondary)', 
+                        fontWeight: 500,
+                        fontFamily: "var(--font-outfit), 'Outfit', sans-serif"
+                      }}>
+                        por apenas:
+                      </span>
+                      <span style={{ 
+                        fontSize: 'var(--text-4xl)', 
+                        fontWeight: 700, 
+                        color: 'var(--color-primary-dark)',
+                        fontFamily: "var(--font-outfit), 'Outfit', sans-serif",
+                        letterSpacing: '-0.5px'
+                      }}>
+                        {formatPrice(product.price)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
                   <span style={{ 
-                    fontSize: 'var(--text-xl)', 
-                    color: 'var(--color-text-muted)', 
-                    textDecoration: 'line-through',
-                    marginLeft: 'var(--space-sm)'
+                    fontSize: 'var(--text-4xl)', 
+                    fontWeight: 700, 
+                    color: 'var(--color-primary-dark)',
+                    fontFamily: "var(--font-outfit), 'Outfit', sans-serif",
+                    letterSpacing: '-0.5px'
                   }}>
-                    {formatPrice(product.original_price!)}
+                    {formatPrice(product.price)}
                   </span>
                 )}
               </div>
@@ -85,11 +116,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </p>
               </div>
 
-              <div style={{ marginTop: 'auto' }}>
+              <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                 <WhatsAppButton productName={product.name} productPrice={product.price} />
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 'var(--space-sm)' }}>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', textAlign: 'center', margin: 0 }}>
                   Ao clicar, você será redirecionada(o) para falar com a Ceci.
                 </p>
+                <ShareButton 
+                  productName={product.name} 
+                  productDescription={product.description || product.short_description || ''}
+                  productPrice={product.price} 
+                />
               </div>
             </div>
 

@@ -46,11 +46,18 @@ export function ProductCard({ product }: ProductCardProps) {
         <p className={styles.description}>{product.short_description}</p>
         
         <div className={styles.priceContainer}>
-          <span className={styles.price}>{formatPrice(product.price)}</span>
-          {hasDiscount && (
-            <span className={styles.originalPrice}>
-              {formatPrice(product.original_price!)}
-            </span>
+          {hasDiscount ? (
+            <>
+              <div className={styles.originalPriceRow}>
+                De: <span className={styles.originalPrice}>{formatPrice(product.original_price!)}</span>
+              </div>
+              <div className={styles.priceRow}>
+                <span className={styles.priceLabel}>por apenas:</span>
+                <span className={styles.price}>{formatPrice(product.price)}</span>
+              </div>
+            </>
+          ) : (
+            <span className={styles.priceOnly}>{formatPrice(product.price)}</span>
           )}
         </div>
       </div>

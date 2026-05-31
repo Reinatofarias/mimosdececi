@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShoppingBag, Search, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Button } from '../ui/Button/Button';
 
 export function Header() {
@@ -45,12 +45,6 @@ export function Header() {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-          <Button variant="ghost" size="sm" aria-label="Buscar" style={{ padding: '0 8px' }}>
-            <Search size={20} />
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<ShoppingBag size={18} />}>
-            Catálogo
-          </Button>
           <Button variant="ghost" size="sm" className="show-on-mobile" style={{ padding: '0 8px' }}>
             <Menu size={24} />
           </Button>
