@@ -14,6 +14,7 @@ export default function NovoPedidoPage() {
     customer_phone: '',
     notes: '',
     total_price: '',
+    total_cost: '',
     payment_method: 'pix',
     payment_status: 'pending',
   });
@@ -24,12 +25,14 @@ export default function NovoPedidoPage() {
 
     try {
       const priceCents = Math.round(parseFloat(formData.total_price.replace(',', '.')) * 100);
+      const costCents = formData.total_cost ? Math.round(parseFloat(formData.total_cost.replace(',', '.')) * 100) : 0;
 
       const result = await createOrder({
         customer_name: formData.customer_name,
         customer_phone: formData.customer_phone,
         notes: formData.notes,
         total_price: priceCents,
+        total_cost: costCents,
         payment_method: formData.payment_method,
         payment_status: formData.payment_status,
       });
@@ -85,17 +88,31 @@ export default function NovoPedidoPage() {
               />
             </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Valor Total Cobrado (R$) *</label>
-              <input 
-                type="number" 
-                step="0.01"
-                required 
-                value={formData.total_price}
-                onChange={e => setFormData({...formData, total_price: e.target.value})}
-                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
-                placeholder="Ex: 165.00"
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Valor Total Cobrado (R$) *</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  required 
+                  value={formData.total_price}
+                  onChange={e => setFormData({...formData, total_price: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  placeholder="Ex: 165.00"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Custo dos Materiais (R$)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.total_cost}
+                  onChange={e => setFormData({...formData, total_cost: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  placeholder="Ex: 45.50"
+                />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>

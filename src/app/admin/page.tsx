@@ -14,6 +14,25 @@ export default async function AdminDashboard() {
   const pendingOrders = orders.filter(o => ['new', 'confirmed', 'in_production'].includes(o.status));
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
 
+  // Financial calculations for current month
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  
+  const currentMonthOrders = orders.filter(o => {
+    if (o.status === 'cancelled') return false;
+    const orderDate = new Date(o.created_at).getTime();
+    return orderDate >= currentMonthStart;
+  });
+
+  const faturamentoCentavos = currentMonthOrders.reduce((sum, order) => sum + (order.total_price || 0), 0);
+  const custoCentavos = currentMonthOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  const lucroCentavos = faturamentoCentavos - custoCentavos;
+
+  const faturamentoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(faturamentoCentavos / 100);
+  const custoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoCentavos / 100);
+  const lucroStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lucroCentavos / 100);
+
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {/* Page Header */}
@@ -27,6 +46,83 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Metrics Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: 'var(--space-lg)',
+        marginBottom: 'var(--space-md)'
+      }}>
+
+        {/* Faturamento do Mês */}
+        <div style={{ 
+          backgroundColor: 'var(--color-surface)', 
+          padding: 'var(--space-lg)', 
+          borderRadius: 'var(--radius-lg)', 
+          border: '1px solid rgba(16, 185, 129, 0.2)', 
+          borderTop: '4px solid #10B981',
+          boxShadow: '0 2px 12px rgba(16, 185, 129, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-text-secondary)' }}>
+              Faturamento (Mês)
+            </span>
+            <TrendingUp size={16} color="#10B981" />
+          </div>
+          <p style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
+            {faturamentoStr}
+          </p>
+        </div>
+
+        {/* Custos do Mês */}
+        <div style={{ 
+          backgroundColor: 'var(--color-surface)', 
+          padding: 'var(--space-lg)', 
+          borderRadius: 'var(--radius-lg)', 
+          border: '1px solid rgba(239, 68, 68, 0.2)', 
+          borderTop: '4px solid #EF4444',
+          boxShadow: '0 2px 12px rgba(239, 68, 68, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-text-secondary)' }}>
+              Custos (Mês)
+            </span>
+            <TrendingUp size={16} color="#EF4444" style={{ transform: 'rotateX(180deg)' }} />
+          </div>
+          <p style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
+            {custoStr}
+          </p>
+        </div>
+
+        {/* Lucro do Mês */}
+        <div style={{ 
+          backgroundColor: 'var(--color-surface)', 
+          padding: 'var(--space-lg)', 
+          borderRadius: 'var(--radius-lg)', 
+          border: '1px solid rgba(59, 130, 246, 0.2)', 
+          borderTop: '4px solid #3B82F6',
+          boxShadow: '0 2px 12px rgba(59, 130, 246, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-text-secondary)' }}>
+              Lucro Líquido (Mês)
+            </span>
+            <Package size={16} color="#3B82F6" />
+          </div>
+          <p style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, color: 'var(--color-text)', margin: 0 }}>
+            {lucroStr}
+          </p>
+        </div>
+      </div>
+
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',

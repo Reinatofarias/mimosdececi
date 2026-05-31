@@ -8,6 +8,7 @@ export async function createOrder(data: {
   customer_phone: string;
   notes: string;
   total_price: number;
+  total_cost: number;
   payment_method: string;
   payment_status: string;
 }) {
