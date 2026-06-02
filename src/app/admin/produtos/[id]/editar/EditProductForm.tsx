@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
-import { deleteUploadedProductImages, updateProduct, uploadProductImages } from '../../actions';
+import { deleteUploadedProductImages, updateProduct, uploadImage } from '../../actions';
 import { UploadCloud } from 'lucide-react';
 import type { Category, Product } from '@/lib/types/database';
 
@@ -56,19 +56,24 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
     setLoading(true);
 
     try {
-      let uploadedUrls: string[] = [];
+      const uploadedUrls: string[] = [];
 
       if (newImageFiles.length > 0) {
-        const fileData = new FormData();
-        newImageFiles.forEach((file) => fileData.append('files', file));
-        const uploadResult = await uploadProductImages(fileData);
+        for (const file of newImageFiles) {
+          const fileData = new FormData();
+          fileData.append('file', file);
+          const uploadResult = await uploadImage(fileData);
 
-        if (uploadResult.success) {
-          uploadedUrls = uploadResult.urls;
-        } else {
-          alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
-          setLoading(false);
-          return;
+          if (uploadResult.success && uploadResult.url) {
+            uploadedUrls.push(uploadResult.url);
+          } else {
+            if (uploadedUrls.length > 0) {
+              await deleteUploadedProductImages(uploadedUrls);
+            }
+            alert(`Erro ao fazer upload da imagem "${file.name}": ${uploadResult.error || 'Falha sem detalhe.'}`);
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -109,8 +114,9 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
         alert('Erro ao atualizar produto: ' + result.error);
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro sem detalhe.';
       console.error(error);
-      alert('Ocorreu um erro inesperado.');
+      alert('Ocorreu um erro inesperado: ' + message);
     } finally {
       setLoading(false);
     }

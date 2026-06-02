@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
-import { createProduct, uploadProductImages } from '../actions';
+import { createProduct, deleteUploadedProductImages, uploadImage } from '../actions';
 import { fetchCategories } from '@/app/admin/categorias/actions';
 import { UploadCloud } from 'lucide-react';
 import type { Category } from '@/lib/types/database';
@@ -52,19 +52,24 @@ export default function NovoProduto() {
     setLoading(true);
 
     try {
-      let imageUrls: string[] = [];
+      const imageUrls: string[] = [];
 
       if (imageFiles.length > 0) {
-        const fileData = new FormData();
-        imageFiles.forEach((file) => fileData.append('files', file));
-        const uploadResult = await uploadProductImages(fileData);
+        for (const file of imageFiles) {
+          const fileData = new FormData();
+          fileData.append('file', file);
+          const uploadResult = await uploadImage(fileData);
 
-        if (uploadResult.success) {
-          imageUrls = uploadResult.urls;
-        } else {
-          alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
-          setLoading(false);
-          return;
+          if (uploadResult.success && uploadResult.url) {
+            imageUrls.push(uploadResult.url);
+          } else {
+            if (imageUrls.length > 0) {
+              await deleteUploadedProductImages(imageUrls);
+            }
+            alert(`Erro ao fazer upload da imagem "${file.name}": ${uploadResult.error || 'Falha sem detalhe.'}`);
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -101,8 +106,9 @@ export default function NovoProduto() {
         alert('Erro ao salvar produto: ' + result.error);
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro sem detalhe.';
       console.error(error);
-      alert('Ocorreu um erro inesperado.');
+      alert('Ocorreu um erro inesperado: ' + message);
     } finally {
       setLoading(false);
     }
