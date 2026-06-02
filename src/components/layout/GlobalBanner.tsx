@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -14,30 +14,21 @@ interface GlobalBannerProps {
 }
 
 export function GlobalBanner({ bannerData }: GlobalBannerProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
-  useEffect(() => {
-    if (bannerData?.active && bannerData?.text) {
-      setIsVisible(true);
-    }
-  }, [bannerData]);
+  const [isDismissed, setIsDismissed] = useState(false);
+  const [isHiddenByScroll, setIsHiddenByScroll] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const isVisible = Boolean(bannerData?.active && bannerData?.text && !isDismissed && !isHiddenByScroll);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      if (currentScrollY > 100 && currentScrollY > lastScrollY) {
-        setIsVisible(false);
-      } else if (currentScrollY < 100) {
-        // Re-show if near top
-        if (bannerData?.active && bannerData?.text) setIsVisible(true);
-      }
-      setLastScrollY(currentScrollY);
+      setIsHiddenByScroll(currentScrollY > 100 && currentScrollY > lastScrollYRef.current);
+      lastScrollYRef.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY, bannerData]);
+  }, []);
 
   return (
     <AnimatePresence>
@@ -67,7 +58,7 @@ export function GlobalBanner({ bannerData }: GlobalBannerProps) {
               {bannerData.text}
             </p>
             <button 
-              onClick={() => setIsVisible(false)}
+              onClick={() => setIsDismissed(true)}
               style={{ 
                 position: 'absolute', 
                 right: 'var(--space-md)', 

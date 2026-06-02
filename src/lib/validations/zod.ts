@@ -9,7 +9,7 @@ export const productSchema = z.object({
   cost_price: z.number().min(0).optional(),
   original_price: z.number().nullable().optional(),
   category_id: z.string().nullable().optional(),
-  images: z.array(z.string()).default([]),
+  images: z.array(z.string().min(1)).max(12, "Um produto pode ter no máximo 12 imagens").default([]),
   featured: z.boolean().default(false),
   active: z.boolean().default(true),
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { getProducts } from '@/lib/dal/products';
+import { getAdminProducts } from '@/lib/dal/products';
 import { Button } from '@/components/ui/Button/Button';
 import { Plus } from 'lucide-react';
 import { DeleteProductButton } from './DeleteProductButton';
@@ -8,7 +8,7 @@ import { DeleteProductButton } from './DeleteProductButton';
 export const revalidate = 0; // Para sempre ver os mais recentes no admin
 
 export default async function AdminProductsPage() {
-  const products = await getProducts();
+  const products = await getAdminProducts();
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {

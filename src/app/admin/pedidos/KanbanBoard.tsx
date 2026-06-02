@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useTransition, useState, useEffect } from 'react';
+import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import { updateOrderStatus, updatePaymentStatus, deleteOrder } from './actions';
-import { Trash2, MessageCircle, AlertTriangle, CheckCircle, CreditCard, Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/Button/Button';
+import { Trash2, MessageCircle, AlertTriangle, CreditCard, Calendar } from 'lucide-react';
 
 interface KanbanBoardProps {
   orders: Order[];
 }
 
-const COLUMNS = [
+type OrderStatus = Order['status'];
+
+const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string }[] = [
   { id: 'new', title: 'Novos', color: '#EF7A88', bgLight: '#FFF0F2' },
   { id: 'confirmed', title: 'Confirmados', color: '#5C9EAD', bgLight: '#E8F1F5' },
   { id: 'in_production', title: 'Em Produção', color: '#E4B363', bgLight: '#FAF4E8' },
@@ -23,16 +24,11 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Sync component state when server-side props change
-  useEffect(() => {
-    setOrders(initialOrders);
-  }, [initialOrders]);
-
-  const handleStatusChange = (orderId: string, newStatus: string) => {
+  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
     const previousOrders = orders;
     
     // Optimistic Update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus as any } : o));
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     setErrorAlert(null);
 
     startTransition(async () => {
@@ -281,7 +277,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '12px' }}>
                       <select 
                         value={order.status}
-                        onChange={e => handleStatusChange(order.id, e.target.value)}
+                        onChange={e => handleStatusChange(order.id, e.target.value as OrderStatus)}
                         disabled={isPending}
                         style={{ 
                           flexGrow: 1, 

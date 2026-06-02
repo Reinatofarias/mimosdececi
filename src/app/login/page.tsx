@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
@@ -88,9 +89,11 @@ export default function LoginPage() {
       }}>
         {/* Brand Logo Header */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-sm)' }}>
-          <img 
+          <Image 
             src="/logo.png" 
             alt="Mimos de Ceci" 
+            width={180}
+            height={64}
             style={{ 
               height: '52px', 
               width: 'auto', 

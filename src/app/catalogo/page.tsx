@@ -1,7 +1,7 @@
 import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { getProducts } from '@/lib/dal/products';
+import { getPublicProducts } from '@/lib/dal/products';
 import { ProductCard } from '@/components/ui/ProductCard/ProductCard';
 import { FadeIn } from '@/components/ui/FadeIn/FadeIn';
 
@@ -11,14 +11,14 @@ import { CategoryFilter } from '@/components/ui/CategoryFilter/CategoryFilter';
 export const revalidate = 0; // Dynamic because of search params
 
 interface CatalogPageProps {
-  searchParams: { categoria?: string };
+  searchParams: Promise<{ categoria?: string }>;
 }
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
-  const categoryId = searchParams.categoria;
+  const { categoria: categoryId } = await searchParams;
   
   const [products, categories] = await Promise.all([
-    getProducts(categoryId),
+    getPublicProducts(categoryId),
     getCategories()
   ]);
 

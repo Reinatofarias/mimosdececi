@@ -36,7 +36,7 @@ export interface ShowcaseSection {
   subtitle: string | null;
   sort_order: number;
   visible: boolean;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

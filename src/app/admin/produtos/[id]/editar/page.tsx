@@ -1,6 +1,6 @@
 import React from 'react';
-import { getProductById } from '@/lib/dal/products';
-import { getCategories } from '@/lib/dal/categories';
+import { getAdminProductById } from '@/lib/dal/products';
+import { getAdminCategories } from '@/lib/dal/categories';
 import { notFound } from 'next/navigation';
 import { EditProductForm } from './EditProductForm';
 
@@ -11,8 +11,8 @@ interface EditProductPageProps {
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { id } = await params;
   const [product, categories] = await Promise.all([
-    getProductById(id),
-    getCategories()
+    getAdminProductById(id),
+    getAdminCategories()
   ]);
 
   if (!product) {

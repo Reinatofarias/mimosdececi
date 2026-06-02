@@ -1,18 +1,20 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
-import { createProduct, uploadImage } from '../actions';
+import { createProduct, uploadProductImages } from '../actions';
 import { fetchCategories } from '@/app/admin/categorias/actions';
 import { UploadCloud } from 'lucide-react';
+import type { Category } from '@/lib/types/database';
 
 export default function NovoProduto() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   React.useEffect(() => {
     fetchCategories().then(setCategories);
@@ -50,17 +52,17 @@ export default function NovoProduto() {
     setLoading(true);
 
     try {
-      const imageUrls: string[] = [];
-      
-      // Upload all selected files sequentially
-      for (const file of imageFiles) {
+      let imageUrls: string[] = [];
+
+      if (imageFiles.length > 0) {
         const fileData = new FormData();
-        fileData.append('file', file);
-        const uploadResult = await uploadImage(fileData);
+        imageFiles.forEach((file) => fileData.append('files', file));
+        const uploadResult = await uploadProductImages(fileData);
+
         if (uploadResult.success) {
-          imageUrls.push(uploadResult.url!);
+          imageUrls = uploadResult.urls;
         } else {
-          alert(`Erro ao fazer upload da imagem "${file.name}": ` + uploadResult.error);
+          alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
           setLoading(false);
           return;
         }
@@ -224,7 +226,7 @@ export default function NovoProduto() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', maxHeight: '180px', overflowY: 'auto', padding: '2px' }}>
                   {imagePreviews.map((preview, index) => (
                     <div key={index} style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                      <img src={preview} alt={`Preview ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image src={preview} alt={`Preview ${index + 1}`} fill unoptimized style={{ objectFit: 'cover' }} />
                       <button
                         type="button"
                         onClick={() => removeImage(index)}

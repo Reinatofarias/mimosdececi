@@ -27,6 +27,18 @@ export function OrderForm({ products }: OrderFormProps) {
 
   const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; product_price: number; cost_price: number; quantity: number }[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const calculatedTotals = React.useMemo(() => {
+    const totalPrice = selectedItems.reduce((sum, item) => sum + (item.product_price * item.quantity), 0);
+    const totalCost = selectedItems.reduce((sum, item) => sum + (item.cost_price * item.quantity), 0);
+
+    return {
+      total_price: selectedItems.length > 0 ? (totalPrice / 100).toFixed(2) : '',
+      total_cost: selectedItems.length > 0 ? (totalCost / 100).toFixed(2) : '',
+    };
+  }, [selectedItems]);
+
+  const displayedTotalPrice = formData.total_price || calculatedTotals.total_price;
+  const displayedTotalCost = formData.total_cost || calculatedTotals.total_cost;
 
   const handleAddProduct = () => {
     if (!selectedProductId) return;
@@ -48,27 +60,13 @@ export function OrderForm({ products }: OrderFormProps) {
     setSelectedItems(prev => prev.filter(item => item.product_id !== productId));
   };
 
-  // Auto-calculate totals whenever items change
-  React.useEffect(() => {
-    if (selectedItems.length > 0) {
-      const totalPrice = selectedItems.reduce((sum, item) => sum + (item.product_price * item.quantity), 0);
-      const totalCost = selectedItems.reduce((sum, item) => sum + (item.cost_price * item.quantity), 0);
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        total_price: (totalPrice / 100).toFixed(2),
-        total_cost: (totalCost / 100).toFixed(2)
-      }));
-    }
-  }, [selectedItems]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const priceCents = Math.round(parseFloat(formData.total_price.replace(',', '.')) * 100);
-      const costCents = formData.total_cost ? Math.round(parseFloat(formData.total_cost.replace(',', '.')) * 100) : 0;
+      const priceCents = Math.round(parseFloat(displayedTotalPrice.replace(',', '.')) * 100);
+      const costCents = displayedTotalCost ? Math.round(parseFloat(displayedTotalCost.replace(',', '.')) * 100) : 0;
 
       const result = await createOrder({
         customer_name: formData.customer_name,
@@ -183,7 +181,7 @@ export function OrderForm({ products }: OrderFormProps) {
                 type="number" 
                 step="0.01"
                 required 
-                value={formData.total_price}
+                value={displayedTotalPrice}
                 onChange={e => setFormData({...formData, total_price: e.target.value})}
                 style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
                 placeholder="Ex: 165.00"
@@ -195,7 +193,7 @@ export function OrderForm({ products }: OrderFormProps) {
               <input 
                 type="number" 
                 step="0.01"
-                value={formData.total_cost}
+                value={displayedTotalCost}
                 onChange={e => setFormData({...formData, total_cost: e.target.value})}
                 style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
                 placeholder="Ex: 45.50"

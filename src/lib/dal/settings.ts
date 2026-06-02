@@ -1,6 +1,21 @@
 import { createClient } from '../supabase/server';
 
-export async function getSettings() {
+export type GlobalBannerSetting = {
+  text?: string;
+  active?: boolean;
+  backgroundColor?: string;
+  textColor?: string;
+};
+
+export type SettingsMap = {
+  whatsapp_number?: string;
+  store_name?: string;
+  store_tagline?: string;
+  global_banner?: GlobalBannerSetting;
+  [key: string]: unknown;
+};
+
+export async function getSettings(): Promise<SettingsMap> {
   const supabase = await createClient();
   const { data, error } = await supabase.from('settings').select('*');
 
@@ -9,7 +24,7 @@ export async function getSettings() {
     return {};
   }
 
-  const settingsMap: Record<string, any> = {};
+  const settingsMap: SettingsMap = {};
   data.forEach((item) => {
     settingsMap[item.key] = item.value;
   });

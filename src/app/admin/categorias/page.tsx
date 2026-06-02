@@ -1,11 +1,11 @@
 import React from 'react';
-import { getCategories } from '@/lib/dal/categories';
+import { getAdminCategories } from '@/lib/dal/categories';
 import { CategoryList } from './CategoryList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CategoriesPage() {
-  const categories = await getCategories();
+  const categories = await getAdminCategories();
 
   return (
     <div>

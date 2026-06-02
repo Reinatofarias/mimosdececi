@@ -106,10 +106,11 @@ export function ProductGallery({ images, productName, hasDiscount }: ProductGall
                     backgroundColor: 'transparent'
                   }}
                 >
-                  <img 
+                  <Image 
                     src={img} 
                     alt={`${productName} thumbnail ${idx + 1}`} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    fill
+                    style={{ objectFit: 'cover' }}
                   />
                 </button>
               )

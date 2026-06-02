@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { toggleFeatured } from './actions';
 import { Star, Search } from 'lucide-react';
 import type { Product } from '@/lib/types/database';
@@ -49,8 +50,8 @@ export function ShowcaseList({ products }: ShowcaseListProps) {
               <tr key={product.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                 <td style={{ padding: '16px', fontWeight: 500 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--color-bg)' }}>
-                      <img src={product.images?.[0] || ''} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--color-bg)', position: 'relative' }}>
+                      <Image src={product.images?.[0] || '/logo-compact.png'} alt={product.name} fill style={{ objectFit: 'cover' }} />
                     </div>
                     {product.name}
                   </div>

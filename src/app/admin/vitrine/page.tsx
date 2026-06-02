@@ -1,11 +1,11 @@
 import React from 'react';
-import { getProducts } from '@/lib/dal/products';
+import { getAdminProducts } from '@/lib/dal/products';
 import { ShowcaseList } from './ShowcaseList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ShowcasePage() {
-  const products = await getProducts(); // Returns all active products
+  const products = await getAdminProducts();
 
   return (
     <div>

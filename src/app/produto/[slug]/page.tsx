@@ -64,7 +64,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     }).format(cents / 100);
   };
 
-  const imageSrc = product.images?.[0] || 'https://via.placeholder.com/800?text=Sem+Imagem';
   const hasDiscount = product.original_price && product.original_price > product.price;
 
   return (

@@ -1,12 +1,12 @@
 import React from 'react';
-import { getProducts } from '@/lib/dal/products';
+import { getAdminProducts } from '@/lib/dal/products';
 import { getOrders, getAllOrderItems } from '@/lib/dal/orders';
 import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy } from 'lucide-react';
 
 export const revalidate = 0;
 
 export default async function AdminDashboard() {
-  const products = await getProducts();
+  const products = await getAdminProducts();
   const activeProducts = products.filter(p => p.active);
   const featuredProducts = products.filter(p => p.featured);
 
@@ -35,7 +35,7 @@ export default async function AdminDashboard() {
   const orderItems = await getAllOrderItems();
   const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
   
-  orderItems.forEach((item: any) => {
+  orderItems.forEach((item) => {
     if (!productStats[item.product_name]) {
       productStats[item.product_name] = { name: item.product_name, quantity: 0, revenue: 0 };
     }

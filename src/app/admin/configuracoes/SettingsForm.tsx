@@ -4,23 +4,29 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
 import { saveSettings } from './actions';
+import type { GlobalBannerSettings, StoreSettingsFormData } from './actions';
+import type { SettingsMap } from '@/lib/dal/settings';
 
 interface SettingsFormProps {
-  initialData: any;
+  initialData: SettingsMap;
 }
 
 export function SettingsForm({ initialData }: SettingsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const defaultBanner: GlobalBannerSettings = {
+    active: false,
+    text: '',
+    backgroundColor: '#F4929E',
+    textColor: '#FFFFFF',
+  };
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<StoreSettingsFormData>({
     whatsapp_number: initialData.whatsapp_number || '',
-    global_banner: initialData.global_banner || {
-      active: false,
-      text: '',
-      backgroundColor: '#F4929E',
-      textColor: '#FFFFFF'
-    }
+    global_banner: {
+      ...defaultBanner,
+      ...initialData.global_banner,
+    },
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

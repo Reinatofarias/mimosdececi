@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -45,9 +46,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           gap: '8px' 
         }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform var(--transition-fast)' }} className="admin-logo-hover">
-            <img 
+            <Image 
               src="/logo-compact.png" 
               alt="Mimos de Ceci" 
+              width={120}
+              height={64}
               style={{ 
                 height: '42px', 
                 width: 'auto', 

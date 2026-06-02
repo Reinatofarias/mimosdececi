@@ -17,6 +17,12 @@ export type Order = {
   updated_at: string;
 };
 
+export type OrderItemSalesRow = {
+  product_name: string;
+  quantity: number;
+  product_price: number;
+};
+
 export async function getOrders(): Promise<Order[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -32,7 +38,7 @@ export async function getOrders(): Promise<Order[]> {
   return data as Order[];
 }
 
-export async function getAllOrderItems() {
+export async function getAllOrderItems(): Promise<OrderItemSalesRow[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('order_items')
@@ -49,5 +55,5 @@ export async function getAllOrderItems() {
     return [];
   }
 
-  return data;
+  return data as OrderItemSalesRow[];
 }

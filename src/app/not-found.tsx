@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -19,9 +20,11 @@ export default function NotFound() {
         textAlign: 'center'
       }}>
         <div style={{ maxWidth: '500px' }}>
-          <img 
+          <Image 
             src="/logo.png" 
             alt="Mimos de Ceci" 
+            width={220}
+            height={80}
             style={{ height: '80px', width: 'auto', margin: '0 auto var(--space-xl)', opacity: 0.8 }} 
           />
           <h1 style={{ 

@@ -24,11 +24,15 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
-      setQuery('');
-      setResults([]);
     }
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
+
+  const handleClose = () => {
+    setQuery('');
+    setResults([]);
+    onClose();
+  };
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -75,7 +79,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           }}
         >
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             style={{ position: 'absolute', top: '24px', right: '24px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '8px' }}
           >
             <X size={32} />
@@ -106,7 +110,9 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             <div style={{ marginTop: 'var(--space-xl)' }}>
               {isLoading && <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-lg)' }}>Buscando...</p>}
               {!isLoading && query.length >= 2 && results.length === 0 && (
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-lg)' }}>Nenhum mimo encontrado para "{query}".</p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-lg)' }}>
+                  Nenhum mimo encontrado para <strong>{query}</strong>.
+                </p>
               )}
               
               {!isLoading && results.length > 0 && (
@@ -119,7 +125,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     >
                       <Link 
                         href={`/produto/${product.slug}`}
-                        onClick={onClose}
+                        onClick={handleClose}
                         style={{ 
                           display: 'flex', 
                           alignItems: 'center', 

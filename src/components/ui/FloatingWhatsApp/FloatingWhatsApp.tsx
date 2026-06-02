@@ -9,16 +9,16 @@ export function FloatingWhatsApp({ phoneNumber = '5581992265790' }: { phoneNumbe
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Don't show in admin routes
-  if (pathname?.startsWith('/admin')) {
-    return null;
-  }
-
   // Delay the entrance of the button so it doesn't fight with initial animations
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 2000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Don't show in admin routes
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=Olá! Gostaria de falar sobre os mimos da Ceci.`;
 

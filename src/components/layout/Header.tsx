@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Menu, X, Search } from 'lucide-react';
 import { Button } from '../ui/Button/Button';
@@ -50,9 +51,11 @@ export function Header() {
           
           {/* Logo */}
           <Link href="/" style={{ display: 'flex', alignItems: 'center', transition: 'transform var(--transition-fast)' }} className="logo-hover">
-            <img 
+            <Image 
               src="/logo.png" 
               alt="Mimos de Ceci" 
+              width={180}
+              height={64}
               style={{ 
                 height: '46px', 
                 width: 'auto', 
@@ -135,9 +138,11 @@ export function Header() {
               padding: 'var(--space-lg)',
               borderBottom: '1px solid var(--color-border)',
             }}>
-              <img 
+              <Image 
                 src="/logo.png" 
                 alt="Mimos de Ceci" 
+                width={160}
+                height={56}
                 style={{ height: '36px', width: 'auto', objectFit: 'contain' }} 
               />
               <button 

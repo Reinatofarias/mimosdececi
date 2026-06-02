@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button/Button';
-import { updateProduct, uploadImage } from '../../actions';
+import { deleteUploadedProductImages, updateProduct, uploadProductImages } from '../../actions';
 import { UploadCloud } from 'lucide-react';
-import type { Product } from '@/lib/types/database';
+import type { Category, Product } from '@/lib/types/database';
 
 interface EditProductFormProps {
   product: Product;
-  categories: any[];
+  categories: Category[];
 }
 
 export function EditProductForm({ product, categories }: EditProductFormProps) {
@@ -55,17 +56,17 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
     setLoading(true);
 
     try {
-      const uploadedUrls: string[] = [];
+      let uploadedUrls: string[] = [];
 
-      // Upload all staged new image files sequentially
-      for (const file of newImageFiles) {
+      if (newImageFiles.length > 0) {
         const fileData = new FormData();
-        fileData.append('file', file);
-        const uploadResult = await uploadImage(fileData);
+        newImageFiles.forEach((file) => fileData.append('files', file));
+        const uploadResult = await uploadProductImages(fileData);
+
         if (uploadResult.success) {
-          uploadedUrls.push(uploadResult.url!);
+          uploadedUrls = uploadResult.urls;
         } else {
-          alert(`Erro ao fazer upload da imagem "${file.name}": ` + uploadResult.error);
+          alert('Erro ao fazer upload das imagens: ' + uploadResult.error);
           setLoading(false);
           return;
         }
@@ -102,6 +103,9 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
         alert('Produto atualizado com sucesso!');
         router.push('/admin/produtos');
       } else {
+        if (uploadedUrls.length > 0) {
+          await deleteUploadedProductImages(uploadedUrls);
+        }
         alert('Erro ao atualizar produto: ' + result.error);
       }
     } catch (error) {
@@ -224,7 +228,7 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
                 {/* Existing Images */}
                 {existingImages.map((img, index) => (
                   <div key={`existing-${index}`} style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                    <img src={img} alt={`Salva ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={img} alt={`Salva ${index + 1}`} fill style={{ objectFit: 'cover' }} />
                     <button
                       type="button"
                       onClick={() => removeExistingImage(index)}
@@ -256,7 +260,7 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
                 {/* New Previews */}
                 {newImagePreviews.map((preview, index) => (
                   <div key={`new-${index}`} style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-primary-light)' }}>
-                    <img src={preview} alt={`Nova Preview ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={preview} alt={`Nova Preview ${index + 1}`} fill unoptimized style={{ objectFit: 'cover' }} />
                     <span style={{ position: 'absolute', bottom: '2px', left: '2px', backgroundColor: 'var(--color-primary-dark)', color: 'white', fontSize: '7px', padding: '1px 3px', borderRadius: '2px', fontWeight: 'bold' }}>NOVA</span>
                     <button
                       type="button"

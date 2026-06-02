@@ -3,14 +3,14 @@ import { Footer } from '@/components/layout/Footer';
 import { HeroSection } from '@/components/sections/HeroSection';
 import { ProductCard } from '@/components/ui/ProductCard/ProductCard';
 import { FadeIn } from '@/components/ui/FadeIn/FadeIn';
-import { getFeaturedProducts, getProducts } from '@/lib/dal/products';
+import { getFeaturedProducts, getPublicProducts } from '@/lib/dal/products';
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
 export default async function Home() {
   const [featuredProducts, allProducts] = await Promise.all([
     getFeaturedProducts(),
-    getProducts()
+    getPublicProducts()
   ]);
 
   return (
