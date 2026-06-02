@@ -1,6 +1,7 @@
 "use server";
 
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
+import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
@@ -32,9 +33,16 @@ export async function createCategory(name: string): Promise<ActionResult> {
 
   const supabase = createAdminClient();
   const slug = generateSlug(name);
-  const { error } = await supabase.from('categories').insert([{ name, slug }]);
+  const { data, error } = await supabase.from('categories').insert([{ name, slug }]).select('id').single();
 
   if (error) return { success: false, error: error.message };
+
+  await recordAuditLog({
+    action: 'category.create',
+    entityType: 'category',
+    entityId: data?.id,
+    metadata: { name, slug },
+  });
 
   revalidatePath('/admin/categorias');
   revalidatePath('/catalogo');
@@ -49,6 +57,12 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
 
+  await recordAuditLog({
+    action: 'category.delete',
+    entityType: 'category',
+    entityId: id,
+  });
+
   revalidatePath('/admin/categorias');
   revalidatePath('/catalogo');
   return { success: true };
@@ -61,6 +75,13 @@ export async function toggleCategoryStatus(id: string, currentStatus: boolean): 
   const supabase = createAdminClient();
   const { error } = await supabase.from('categories').update({ active: !currentStatus }).eq('id', id);
   if (error) return { success: false, error: error.message };
+
+  await recordAuditLog({
+    action: 'category.toggle',
+    entityType: 'category',
+    entityId: id,
+    metadata: { active: !currentStatus },
+  });
 
   revalidatePath('/admin/categorias');
   revalidatePath('/catalogo');

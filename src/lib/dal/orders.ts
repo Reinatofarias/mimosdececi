@@ -13,6 +13,12 @@ export type Order = {
   coupon_code: string | null;
   discount_amount: number;
   cancelled_reason: string | null;
+  customer_address?: string;
+  delivery_date?: string | null;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  reminder_notes?: string;
+  attachments?: { label: string; url: string }[];
+  status_history?: { status: string; at: string; note?: string }[];
   created_at: string;
   updated_at: string;
 };

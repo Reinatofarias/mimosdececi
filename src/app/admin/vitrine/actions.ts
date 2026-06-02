@@ -1,6 +1,7 @@
 "use server";
 
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
+import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
@@ -13,6 +14,13 @@ export async function toggleFeatured(productId: string, currentFeatured: boolean
   const { error } = await supabase.from('products').update({ featured: !currentFeatured }).eq('id', productId);
 
   if (error) return { success: false, error: error.message };
+
+  await recordAuditLog({
+    action: 'showcase.toggle_featured',
+    entityType: 'product',
+    entityId: productId,
+    metadata: { featured: !currentFeatured },
+  });
 
   revalidatePath('/admin/vitrine');
   revalidatePath('/');

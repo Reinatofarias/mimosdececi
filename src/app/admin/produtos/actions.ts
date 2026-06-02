@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'crypto';
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
+import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { productSchema } from '@/lib/validations/zod';
 import { revalidatePath } from 'next/cache';
@@ -23,6 +24,10 @@ type ProductInput = {
   featured: boolean;
   active: boolean;
   category_id?: string | null;
+  stock_quantity?: number;
+  availability?: 'available' | 'made_to_order' | 'sold_out' | 'hidden';
+  product_status?: 'draft' | 'published' | 'archived';
+  variations?: { name: string; price_delta?: number }[];
 };
 
 type UploadProductImagesResult = ActionResult & {
@@ -70,6 +75,35 @@ function getProductImageStoragePath(publicUrl: string) {
   }
 }
 
+function splitProductData(data: ProductInput | Partial<ProductInput>) {
+  const baseData = {
+    name: data.name,
+    slug: data.slug,
+    description: data.description,
+    short_description: data.short_description,
+    price: data.price,
+    cost_price: data.cost_price,
+    original_price: data.original_price,
+    images: data.images,
+    featured: data.featured,
+    active: data.active,
+    category_id: data.category_id,
+  };
+
+  const fullData = {
+    ...baseData,
+    stock_quantity: data.stock_quantity,
+    availability: data.availability,
+    product_status: data.product_status,
+    variations: data.variations,
+  };
+
+  return {
+    baseData: Object.fromEntries(Object.entries(baseData).filter(([, value]) => value !== undefined)),
+    fullData: Object.fromEntries(Object.entries(fullData).filter(([, value]) => value !== undefined)),
+  };
+}
+
 async function deleteProductImageUrls(urls: string[]) {
   const paths = urls
     .map(getProductImageStoragePath)
@@ -87,10 +121,40 @@ async function deleteProductImageUrls(urls: string[]) {
   }
 }
 
+async function syncProductImages(productId: string, urls: string[]) {
+  const supabase = createAdminClient();
+  const { error: deleteError } = await supabase.from('product_images').delete().eq('product_id', productId);
+
+  if (deleteError) {
+    if (!deleteError.message.toLowerCase().includes('product_images')) {
+      console.error('Erro ao limpar product_images:', deleteError);
+    }
+    return;
+  }
+
+  if (urls.length === 0) return;
+
+  const rows = urls.map((url, index) => ({
+    product_id: productId,
+    storage_path: getProductImageStoragePath(url) || url,
+    public_url: url,
+    alt_text: '',
+    sort_order: index,
+    is_cover: index === 0,
+  }));
+
+  const { error } = await supabase.from('product_images').insert(rows);
+
+  if (error && !error.message.toLowerCase().includes('product_images')) {
+    console.error('Erro ao salvar product_images:', error);
+  }
+}
+
 function revalidateProductPaths(slug?: string | null) {
   revalidatePath('/');
   revalidatePath('/catalogo');
   revalidatePath('/admin/produtos');
+  revalidatePath('/admin/vitrine');
 
   if (slug) {
     revalidatePath(`/produto/${slug}`);
@@ -109,15 +173,28 @@ export async function createProduct(data: ProductInput): Promise<ActionResult> {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase.from('products').insert([parsedData.data]);
+  const { baseData, fullData } = splitProductData(parsedData.data);
+  let insertResult = await supabase.from('products').insert([fullData]).select('id, slug').single();
 
-  if (error) {
-    console.error('Erro ao criar produto:', error);
-    await deleteProductImageUrls(parsedData.data.images || []);
-    return { success: false, error: error.message };
+  if (insertResult.error && insertResult.error.message.toLowerCase().includes('column')) {
+    insertResult = await supabase.from('products').insert([baseData]).select('id, slug').single();
   }
 
-  revalidateProductPaths(parsedData.data.slug);
+  if (insertResult.error || !insertResult.data) {
+    console.error('Erro ao criar produto:', insertResult.error);
+    await deleteProductImageUrls(parsedData.data.images || []);
+    return { success: false, error: insertResult.error?.message || 'Erro ao criar produto.' };
+  }
+
+  await syncProductImages(insertResult.data.id, parsedData.data.images || []);
+  await recordAuditLog({
+    action: 'create',
+    entityType: 'product',
+    entityId: insertResult.data.id,
+    metadata: { name: parsedData.data.name, imageCount: parsedData.data.images?.length || 0 },
+  });
+
+  revalidateProductPaths(insertResult.data.slug);
   return { success: true };
 }
 
@@ -166,6 +243,7 @@ export async function uploadProductImages(formData: FormData): Promise<UploadPro
       if (error) {
         await deleteProductImageUrls(uploadedUrls);
         console.error('Erro ao fazer upload no Supabase:', error);
+        await recordAuditLog({ action: 'upload_failed', entityType: 'product_image', metadata: { fileName: file.name, error: error.message } });
         return { success: false, error: error.message, urls: [] as string[] };
       }
 
@@ -173,9 +251,11 @@ export async function uploadProductImages(formData: FormData): Promise<UploadPro
       uploadedUrls.push(publicUrlData.publicUrl);
     }
 
+    await recordAuditLog({ action: 'upload', entityType: 'product_image', metadata: { count: uploadedUrls.length } });
     return { success: true, urls: uploadedUrls };
   } catch (error: unknown) {
     console.error('Erro inesperado na Server Action uploadProductImages:', error);
+    await recordAuditLog({ action: 'upload_failed', entityType: 'product_image', metadata: { error: getErrorMessage(error) } });
     return { success: false, error: getErrorMessage(error), urls: [] as string[] };
   }
 }
@@ -197,13 +277,23 @@ export async function updateProduct(id: string, data: Partial<ProductInput>): Pr
 
   const supabase = createAdminClient();
   const { data: existingProduct } = await supabase.from('products').select('slug').eq('id', id).single();
-  const { error } = await supabase.from('products').update(parsedData.data).eq('id', id);
+  const { baseData, fullData } = splitProductData(parsedData.data);
+  let updateResult = await supabase.from('products').update(fullData).eq('id', id);
 
-  if (error) {
-    console.error('Erro ao atualizar produto:', error);
-    return { success: false, error: error.message };
+  if (updateResult.error && updateResult.error.message.toLowerCase().includes('column')) {
+    updateResult = await supabase.from('products').update(baseData).eq('id', id);
   }
 
+  if (updateResult.error) {
+    console.error('Erro ao atualizar produto:', updateResult.error);
+    return { success: false, error: updateResult.error.message };
+  }
+
+  if (parsedData.data.images) {
+    await syncProductImages(id, parsedData.data.images);
+  }
+
+  await recordAuditLog({ action: 'update', entityType: 'product', entityId: id, metadata: { name: parsedData.data.name } });
   revalidateProductPaths(existingProduct?.slug);
   if (parsedData.data.slug && parsedData.data.slug !== existingProduct?.slug) {
     revalidatePath(`/produto/${parsedData.data.slug}`);
@@ -218,6 +308,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 
   const supabase = createAdminClient();
   const { data: product } = await supabase.from('products').select('images, slug').eq('id', id).single();
+  const { data: imageRows } = await supabase.from('product_images').select('public_url').eq('product_id', id);
   const { error } = await supabase.from('products').delete().eq('id', id);
 
   if (error) {
@@ -225,8 +316,11 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
     return { success: false, error: error.message };
   }
 
+  const professionalUrls = ((imageRows || []) as { public_url: string }[]).map((row) => row.public_url);
+  const fallbackUrls = (product?.images as string[] | null) || [];
+  await deleteProductImageUrls([...professionalUrls, ...fallbackUrls]);
+  await recordAuditLog({ action: 'delete', entityType: 'product', entityId: id, metadata: { slug: product?.slug } });
   revalidateProductPaths(product?.slug);
-  await deleteProductImageUrls((product?.images as string[] | null) || []);
   return { success: true };
 }
 
@@ -235,5 +329,6 @@ export async function deleteUploadedProductImages(urls: string[]): Promise<Actio
   if (authError) return authError;
 
   await deleteProductImageUrls(urls);
+  await recordAuditLog({ action: 'delete_uploads', entityType: 'product_image', metadata: { count: urls.length } });
   return { success: true };
 }

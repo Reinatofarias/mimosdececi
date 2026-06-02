@@ -1,3 +1,4 @@
+import { pbkdf2Sync, timingSafeEqual } from 'crypto';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
@@ -22,13 +23,34 @@ declare module 'next-auth/jwt' {
   }
 }
 
+export function createPasswordHash(password: string, salt: string, iterations = 310000) {
+  const hash = pbkdf2Sync(password, salt, iterations, 32, 'sha256').toString('base64url');
+  return `pbkdf2$${iterations}$${salt}$${hash}`;
+}
+
+export function verifyPassword(password: string, storedValue?: string) {
+  if (!storedValue) return false;
+
+  if (!storedValue.startsWith('pbkdf2$')) {
+    return password === storedValue;
+  }
+
+  const [, iterationsRaw, salt, expectedHash] = storedValue.split('$');
+  const iterations = Number(iterationsRaw);
+  if (!iterations || !salt || !expectedHash) return false;
+
+  const actual = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  const expected = Buffer.from(expectedHash, 'base64url');
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Senha", type: "password" }
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Senha', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -38,29 +60,28 @@ export const authOptions: NextAuthOptions = {
         const adminEmail = process.env.ADMIN_EMAIL;
         const adminPassword = process.env.ADMIN_PASSWORD_HASH;
 
-        // Validação simples direta pelo env já que é um único admin
         if (
-          credentials.email === adminEmail && 
-          credentials.password === adminPassword
+          credentials.email === adminEmail &&
+          verifyPassword(credentials.password, adminPassword)
         ) {
           return {
             id: '1',
             name: 'Administrador Ceci',
             email: adminEmail,
-            role: 'admin'
+            role: 'admin',
           };
         }
 
         return null;
-      }
-    })
+      },
+    }),
   ],
   pages: {
     signIn: '/login',
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    maxAge: 8 * 60 * 60,
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -74,7 +95,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
       }
       return session;
-    }
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

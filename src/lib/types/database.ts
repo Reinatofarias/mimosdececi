@@ -22,9 +22,34 @@ export interface Product {
   images: string[];
   category_id: string | null;
   tags: string[];
+  stock_quantity?: number;
+  availability?: 'available' | 'made_to_order' | 'sold_out' | 'hidden';
+  product_status?: 'draft' | 'published' | 'archived';
+  variations?: ProductVariation[];
   featured: boolean;
   active: boolean;
   sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductVariation {
+  name: string;
+  price_delta?: number;
+}
+
+export interface ProductImage {
+  id: string;
+  product_id: string;
+  storage_path: string;
+  public_url: string;
+  alt_text: string;
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
+  mime_type: string | null;
+  sort_order: number;
+  is_cover: boolean;
   created_at: string;
   updated_at: string;
 }

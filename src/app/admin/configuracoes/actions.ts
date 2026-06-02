@@ -1,6 +1,7 @@
 "use server";
 
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
+import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
@@ -34,6 +35,15 @@ export async function saveSettings(data: StoreSettingsFormData): Promise<ActionR
     .upsert({ key: 'global_banner', value: data.global_banner, updated_at: updatedAt });
 
   if (bannerError) return { success: false, error: bannerError.message };
+
+  await recordAuditLog({
+    action: 'settings.update',
+    entityType: 'settings',
+    metadata: {
+      whatsapp_number_changed: Boolean(data.whatsapp_number),
+      global_banner_active: data.global_banner.active,
+    },
+  });
 
   revalidatePath('/', 'layout');
   revalidatePath('/admin/configuracoes');

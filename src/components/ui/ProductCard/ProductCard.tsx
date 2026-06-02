@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button } from '../Button/Button';
+import { AddToCartButton } from '../Cart/AddToCartButton';
 import styles from './ProductCard.module.css';
 import type { Product } from '@/lib/types/database';
 
@@ -73,7 +74,8 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       </div>
 
       <div className={styles.footer}>
-        <Link href={`/produto/${product.slug}`} style={{ display: 'block' }}>
+        <AddToCartButton fullWidth product={{ id: product.id, name: product.name, slug: product.slug, price: product.price, image: imageSrc }} />
+        <Link href={`/produto/${product.slug}`} style={{ display: 'block', marginTop: '8px' }}>
           <Button variant="primary" fullWidth>
             Ver Detalhes
           </Button>

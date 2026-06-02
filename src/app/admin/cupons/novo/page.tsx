@@ -8,21 +8,39 @@ import { createCoupon } from '../actions';
 export default function NovoCupomPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const [formData, setFormData] = useState({
     code: '',
     description: '',
     discount_type: 'percentage' as 'percentage' | 'fixed',
     discount_value: '',
+    min_order_value: '',
+    max_discount_value: '',
+    max_uses: '',
+    start_date: '',
+    end_date: '',
+    usage_type: 'multiple' as 'single' | 'multiple',
+    product_ids: '',
+    category_ids: '',
+    notes: '',
     active: true,
   });
+
+  const toCents = (value: string) => {
+    if (!value.trim()) return null;
+    return Math.round(parseFloat(value.replace(',', '.')) * 100);
+  };
+
+  const toNumber = (value: string) => value.trim() ? Number(value) : null;
+  const toList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
 
     try {
-      // Se for porcentagem, é direto. Se for fixo, multiplica por 100 pra salvar em centavos
       const rawValue = parseFloat(formData.discount_value.replace(',', '.'));
       const valueToSave = formData.discount_type === 'fixed' ? Math.round(rawValue * 100) : rawValue;
 
@@ -31,52 +49,86 @@ export default function NovoCupomPage() {
         description: formData.description,
         discount_type: formData.discount_type,
         discount_value: valueToSave,
+        min_order_value: toCents(formData.min_order_value),
+        max_discount_value: toCents(formData.max_discount_value),
+        max_uses: toNumber(formData.max_uses),
+        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : null,
+        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
+        usage_type: formData.usage_type,
+        applies_to: {
+          product_ids: toList(formData.product_ids),
+          category_ids: toList(formData.category_ids),
+        },
+        notes: formData.notes || null,
         active: formData.active,
       });
 
       if (result.success) {
-        alert('Cupom criado com sucesso!');
+        setMessage({ type: 'success', text: 'Cupom criado com sucesso.' });
         router.push('/admin/cupons');
       } else {
-        alert('Erro ao criar cupom: ' + result.error);
+        setMessage({ type: 'error', text: `Erro ao criar cupom: ${result.error}` });
       }
     } catch (error) {
       console.error(error);
-      alert('Ocorreu um erro inesperado.');
+      setMessage({ type: 'error', text: 'Ocorreu um erro inesperado.' });
     } finally {
       setLoading(false);
     }
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border)',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    marginBottom: '8px',
+    fontWeight: 500,
+  };
+
   return (
-    <div style={{ maxWidth: '600px' }}>
+    <div style={{ maxWidth: '780px' }}>
       <h1 style={{ fontSize: 'var(--text-3xl)', marginBottom: 'var(--space-2xl)' }}>Novo Cupom</h1>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-        
+        {message && (
+          <div style={{
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-md)',
+            background: message.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+            color: message.type === 'success' ? '#047857' : '#991B1B',
+            border: `1px solid ${message.type === 'success' ? '#A7F3D0' : '#FECACA'}`,
+          }}>
+            {message.text}
+          </div>
+        )}
+
         <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
-          
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Código do Cupom *</label>
-              <input 
-                type="text" 
-                required 
+              <label style={labelStyle}>Codigo do Cupom *</label>
+              <input
+                type="text"
+                required
                 value={formData.code}
-                onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})}
-                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', textTransform: 'uppercase' }}
+                onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                style={{ ...inputStyle, textTransform: 'uppercase' }}
                 placeholder="Ex: NAMORADOS10"
               />
-              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>O código que o cliente vai te mandar no WhatsApp.</span>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>O codigo que o cliente vai usar no pre-pedido.</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Tipo de Desconto</label>
-                <select 
+                <label style={labelStyle}>Tipo de Desconto</label>
+                <select
                   value={formData.discount_type}
-                  onChange={e => setFormData({...formData, discount_type: e.target.value as 'percentage' | 'fixed'})}
-                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  onChange={e => setFormData({ ...formData, discount_type: e.target.value as 'percentage' | 'fixed' })}
+                  style={inputStyle}
                 >
                   <option value="percentage">Porcentagem (%)</option>
                   <option value="fixed">Valor Fixo (R$)</option>
@@ -84,40 +136,89 @@ export default function NovoCupomPage() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-                  Valor do Desconto *
-                </label>
-                <input 
-                  type="number" 
+                <label style={labelStyle}>Valor do Desconto *</label>
+                <input
+                  type="number"
                   step="0.01"
-                  required 
+                  required
                   value={formData.discount_value}
-                  onChange={e => setFormData({...formData, discount_value: e.target.value})}
-                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
-                  placeholder={formData.discount_type === 'percentage' ? "Ex: 10" : "Ex: 15.00"}
+                  onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
+                  style={inputStyle}
+                  placeholder={formData.discount_type === 'percentage' ? 'Ex: 10' : 'Ex: 15.00'}
                 />
               </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Descrição (Opcional)</label>
-              <input 
-                type="text" 
+              <label style={labelStyle}>Descricao</label>
+              <input
+                type="text"
                 value={formData.description}
-                onChange={e => setFormData({...formData, description: e.target.value})}
-                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
-                placeholder="Ex: Promoção de dia dos namorados do Instagram"
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                style={inputStyle}
+                placeholder="Ex: Promocao de dia dos namorados do Instagram"
               />
             </div>
-            
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={labelStyle}>Pedido minimo (R$)</label>
+                <input type="number" step="0.01" value={formData.min_order_value} onChange={e => setFormData({ ...formData, min_order_value: e.target.value })} style={inputStyle} placeholder="Ex: 100.00" />
+              </div>
+              <div>
+                <label style={labelStyle}>Desconto maximo (R$)</label>
+                <input type="number" step="0.01" value={formData.max_discount_value} onChange={e => setFormData({ ...formData, max_discount_value: e.target.value })} style={inputStyle} placeholder="Para cupons percentuais" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={labelStyle}>Inicio da validade</label>
+                <input type="datetime-local" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Fim da validade</label>
+                <input type="datetime-local" value={formData.end_date} onChange={e => setFormData({ ...formData, end_date: e.target.value })} style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={labelStyle}>Limite de usos</label>
+                <input type="number" min="1" value={formData.max_uses} onChange={e => setFormData({ ...formData, max_uses: e.target.value })} style={inputStyle} placeholder="Sem limite" />
+              </div>
+              <div>
+                <label style={labelStyle}>Tipo de uso</label>
+                <select value={formData.usage_type} onChange={e => setFormData({ ...formData, usage_type: e.target.value as 'single' | 'multiple' })} style={inputStyle}>
+                  <option value="multiple">Multiuso</option>
+                  <option value="single">Uso unico por cliente</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Produtos incluidos</label>
+              <input type="text" value={formData.product_ids} onChange={e => setFormData({ ...formData, product_ids: e.target.value })} style={inputStyle} placeholder="IDs separados por virgula. Vazio = todos." />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Categorias incluidas</label>
+              <input type="text" value={formData.category_ids} onChange={e => setFormData({ ...formData, category_ids: e.target.value })} style={inputStyle} placeholder="IDs separados por virgula. Vazio = todas." />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Notas internas</label>
+              <textarea rows={3} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} style={inputStyle} placeholder="Contexto da campanha, canal de divulgacao, excecoes..." />
+            </div>
+
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '8px' }}>
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={formData.active}
-                onChange={e => setFormData({...formData, active: e.target.checked})}
+                onChange={e => setFormData({ ...formData, active: e.target.checked })}
                 style={{ width: '18px', height: '18px' }}
               />
-              <span style={{ fontWeight: 500 }}>Cupom Ativo (Pode ser usado agora)</span>
+              <span style={{ fontWeight: 500 }}>Cupom Ativo</span>
             </label>
           </div>
         </div>
@@ -130,7 +231,6 @@ export default function NovoCupomPage() {
             Salvar Cupom
           </Button>
         </div>
-
       </form>
     </div>
   );

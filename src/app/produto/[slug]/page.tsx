@@ -5,8 +5,10 @@ import { getProductBySlug } from '@/lib/dal/products';
 import { ProductGallery } from '@/components/ui/ProductGallery/ProductGallery';
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton/WhatsAppButton';
 import { ShareButton } from '@/components/ui/ShareButton/ShareButton';
+import { AddToCartButton } from '@/components/ui/Cart/AddToCartButton';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { absoluteUrl } from '@/lib/site-url';
 
 export const revalidate = 60; // Revalida a página a cada 60 segundos
 
@@ -65,9 +67,34 @@ export default async function ProductPage({ params }: ProductPageProps) {
   };
 
   const hasDiscount = product.original_price && product.original_price > product.price;
+  const productUrl = absoluteUrl(`/produto/${product.slug}`);
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description || product.short_description || product.name,
+    image: product.images?.map((image) => image.startsWith('http') ? image : absoluteUrl(image)) || [],
+    url: productUrl,
+    brand: {
+      '@type': 'Brand',
+      name: 'Mimos de Ceci',
+    },
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'BRL',
+      price: (product.price / 100).toFixed(2),
+      availability: product.availability === 'sold_out' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      url: productUrl,
+    },
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
       <Header />
       <main style={{ backgroundColor: 'var(--color-bg-warm)', minHeight: '100vh', padding: 'var(--space-2xl) 0' }}>
         <div className="container" style={{ maxWidth: '1000px' }}>
@@ -151,6 +178,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
 
               <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                <AddToCartButton
+                  fullWidth
+                  product={{ id: product.id, name: product.name, slug: product.slug, price: product.price, image: product.images?.[0] }}
+                />
                 <WhatsAppButton productName={product.name} productPrice={product.price} />
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', textAlign: 'center', margin: 0 }}>
                   Ao clicar, você será redirecionada(o) para falar com a Ceci.

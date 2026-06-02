@@ -14,6 +14,7 @@ interface OrderFormProps {
 export function OrderForm({ products }: OrderFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -23,6 +24,10 @@ export function OrderForm({ products }: OrderFormProps) {
     total_cost: '',
     payment_method: 'pix',
     payment_status: 'pending',
+    customer_address: '',
+    delivery_date: '',
+    priority: 'normal',
+    reminder_notes: '',
   });
 
   const [selectedItems, setSelectedItems] = useState<{ product_id: string; product_name: string; product_price: number; cost_price: number; quantity: number }[]>([]);
@@ -63,6 +68,7 @@ export function OrderForm({ products }: OrderFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
 
     try {
       const priceCents = Math.round(parseFloat(displayedTotalPrice.replace(',', '.')) * 100);
@@ -76,18 +82,22 @@ export function OrderForm({ products }: OrderFormProps) {
         total_cost: costCents,
         payment_method: formData.payment_method,
         payment_status: formData.payment_status,
+        customer_address: formData.customer_address,
+        delivery_date: formData.delivery_date || null,
+        priority: formData.priority,
+        reminder_notes: formData.reminder_notes,
         items: selectedItems,
       });
 
       if (result.success) {
-        alert('Pedido registrado com sucesso!');
+        setMessage({ type: 'success', text: 'Pedido registrado com sucesso.' });
         router.push('/admin/pedidos');
       } else {
-        alert('Erro ao registrar pedido: ' + result.error);
+        setMessage({ type: 'error', text: 'Erro ao registrar pedido: ' + result.error });
       }
     } catch (error) {
       console.error(error);
-      alert('Ocorreu um erro inesperado.');
+      setMessage({ type: 'error', text: 'Ocorreu um erro inesperado.' });
     } finally {
       setLoading(false);
     }
@@ -102,6 +112,17 @@ export function OrderForm({ products }: OrderFormProps) {
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+        {message && (
+          <div style={{
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-md)',
+            background: message.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+            color: message.type === 'success' ? '#047857' : '#991B1B',
+            border: `1px solid ${message.type === 'success' ? '#A7F3D0' : '#FECACA'}`,
+          }}>
+            {message.text}
+          </div>
+        )}
         
         {/* Formulário do Cliente */}
         <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
@@ -127,6 +148,27 @@ export function OrderForm({ products }: OrderFormProps) {
                 onChange={e => setFormData({...formData, customer_phone: e.target.value})}
                 style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
                 placeholder="Ex: (81) 99999-9999"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Endereço de Entrega</label>
+              <input
+                type="text"
+                value={formData.customer_address}
+                onChange={e => setFormData({...formData, customer_address: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                placeholder="Rua, número, bairro e referência"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Lembretes Internos</label>
+              <textarea
+                rows={3}
+                value={formData.reminder_notes}
+                onChange={e => setFormData({...formData, reminder_notes: e.target.value})}
+                style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', resize: 'vertical' }}
+                placeholder="Ex: Confirmar horário um dia antes, enviar foto antes da entrega..."
               />
             </div>
           </div>
@@ -229,6 +271,32 @@ export function OrderForm({ products }: OrderFormProps) {
                 >
                   <option value="pending">Aguardando Pagamento</option>
                   <option value="paid">Pago</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Data Combinada de Entrega</label>
+                <input
+                  type="datetime-local"
+                  value={formData.delivery_date}
+                  onChange={e => setFormData({...formData, delivery_date: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Prioridade</label>
+                <select
+                  value={formData.priority}
+                  onChange={e => setFormData({...formData, priority: e.target.value})}
+                  style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                >
+                  <option value="low">Baixa</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">Alta</option>
+                  <option value="urgent">Urgente</option>
                 </select>
               </div>
             </div>

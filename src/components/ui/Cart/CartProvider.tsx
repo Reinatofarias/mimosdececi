@@ -1,0 +1,168 @@
+"use client";
+
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { MessageCircle, ShoppingBag, Trash2, X } from 'lucide-react';
+import { Button } from '@/components/ui/Button/Button';
+
+export type CartItem = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image?: string;
+  quantity: number;
+};
+
+type CartContextValue = {
+  items: CartItem[];
+  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  openCart: () => void;
+};
+
+const CartContext = createContext<CartContextValue | null>(null);
+const STORAGE_KEY = 'mimosdececi.cart';
+
+function formatPrice(cents: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+}
+
+export function useCart() {
+  const context = useContext(CartContext);
+  if (!context) throw new Error('useCart must be used inside CartProvider');
+  return context;
+}
+
+export function CartProvider({ children, phoneNumber }: { children: React.ReactNode; phoneNumber: string }) {
+  const pathname = usePathname();
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw) as CartItem[];
+    } catch {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return [];
+    }
+  });
+  const [open, setOpen] = useState(false);
+  const [customer, setCustomer] = useState({ name: '', phone: '', address: '', notes: '' });
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
+
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
+
+  const value = useMemo<CartContextValue>(() => ({
+    items,
+    addItem(item) {
+      setItems((prev) => {
+        const existing = prev.find((cartItem) => cartItem.id === item.id);
+        if (existing) {
+          return prev.map((cartItem) => cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem);
+        }
+        return [...prev, { ...item, quantity: 1 }];
+      });
+      setOpen(true);
+    },
+    removeItem(id) {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    },
+    updateQuantity(id, quantity) {
+      setItems((prev) => prev.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item));
+    },
+    openCart() {
+      setOpen(true);
+    },
+  }), [items]);
+
+  const hideCart = pathname?.startsWith('/admin');
+  const whatsappMessage = encodeURIComponent([
+    'Olá! Quero fazer um pré-pedido na Mimos de Ceci.',
+    '',
+    ...items.map((item) => `- ${item.quantity}x ${item.name} (${formatPrice(item.price * item.quantity)})`),
+    '',
+    `Total estimado: ${formatPrice(total)}`,
+    '',
+    `Nome: ${customer.name}`,
+    `Telefone: ${customer.phone}`,
+    `Endereço: ${customer.address}`,
+    `Observações: ${customer.notes}`,
+  ].join('\n'));
+
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      {!hideCart && items.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: 94,
+            right: 24,
+            zIndex: 8999,
+            border: 0,
+            borderRadius: 999,
+            background: '#111115',
+            color: 'white',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,.2)',
+            cursor: 'pointer',
+            fontWeight: 700,
+          }}
+        >
+          <ShoppingBag size={18} />
+          {items.reduce((sum, item) => sum + item.quantity, 0)}
+        </button>
+      )}
+
+      {!hideCart && open && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.45)', display: 'flex', justifyContent: 'flex-end' }}>
+          <aside style={{ width: '420px', maxWidth: '100%', height: '100%', background: 'white', padding: 24, overflowY: 'auto', boxShadow: '-12px 0 32px rgba(0,0,0,.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ margin: 0, fontSize: 24 }}>Sacola</h2>
+              <button type="button" onClick={() => setOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            {items.length === 0 ? (
+              <p style={{ color: 'var(--color-text-secondary)' }}>Sua sacola está vazia.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {items.map((item) => (
+                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, borderBottom: '1px solid var(--color-border)', paddingBottom: 12 }}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <p style={{ margin: '4px 0', color: 'var(--color-text-secondary)' }}>{formatPrice(item.price)}</p>
+                      <input type="number" min={1} value={item.quantity} onChange={(e) => value.updateQuantity(item.id, Number(e.target.value))} style={{ width: 70, padding: 6, borderRadius: 6, border: '1px solid var(--color-border)' }} />
+                    </div>
+                    <button type="button" onClick={() => value.removeItem(item.id)} style={{ border: 0, background: 'transparent', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={18} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>Total: {formatPrice(total)}</div>
+
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input placeholder="Nome" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <input placeholder="WhatsApp" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <input placeholder="Endereço de entrega" value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <textarea placeholder="Observações" rows={3} value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <a href={`https://wa.me/${phoneNumber}?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', pointerEvents: items.length === 0 ? 'none' : 'auto', opacity: items.length === 0 ? .5 : 1 }}>
+                <Button variant="primary" fullWidth leftIcon={<MessageCircle size={18} />}>Enviar Pré-pedido no WhatsApp</Button>
+              </a>
+            </div>
+          </aside>
+        </div>
+      )}
+    </CartContext.Provider>
+  );
+}

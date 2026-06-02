@@ -3,7 +3,7 @@
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import { updateOrderStatus, updatePaymentStatus, deleteOrder } from './actions';
-import { Trash2, MessageCircle, AlertTriangle, CreditCard, Calendar } from 'lucide-react';
+import { Trash2, MessageCircle, AlertTriangle, CreditCard, Calendar, MapPin, Search } from 'lucide-react';
 
 interface KanbanBoardProps {
   orders: Order[];
@@ -22,6 +22,8 @@ const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string 
 export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [isPending, startTransition] = useTransition();
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
@@ -97,6 +99,38 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
     }
   };
 
+  const filteredOrders = orders.filter((order) => {
+    const searchable = [
+      order.customer_name,
+      order.customer_phone,
+      order.notes,
+      order.customer_address,
+      order.reminder_notes,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    const matchesSearch = searchable.includes(searchTerm.trim().toLowerCase());
+    const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
+    return matchesSearch && matchesPriority;
+  });
+
+  const getPriorityLabel = (priority?: string) => {
+    switch (priority) {
+      case 'high': return 'Alta';
+      case 'urgent': return 'Urgente';
+      case 'low': return 'Baixa';
+      default: return 'Normal';
+    }
+  };
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'urgent': return { bg: '#FEE2E2', text: '#991B1B' };
+      case 'high': return { bg: '#FEF3C7', text: '#92400E' };
+      case 'low': return { bg: '#E0F2FE', text: '#075985' };
+      default: return { bg: '#F3F4F6', text: '#374151' };
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: '100%' }}>
       {/* Alert Banner for Database Errors */}
@@ -127,6 +161,39 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
         </div>
       )}
 
+      <div style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--space-md)',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(220px, 1fr) 180px',
+        gap: 'var(--space-md)',
+        alignItems: 'center'
+      }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0 10px', background: 'var(--color-bg)' }}>
+          <Search size={16} color="var(--color-text-muted)" />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar cliente, telefone, endereco ou observacao"
+            style={{ width: '100%', border: 0, outline: 0, padding: '10px 0', background: 'transparent' }}
+          />
+        </label>
+        <select
+          value={priorityFilter}
+          onChange={(event) => setPriorityFilter(event.target.value)}
+          style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
+        >
+          <option value="all">Todas prioridades</option>
+          <option value="urgent">Urgente</option>
+          <option value="high">Alta</option>
+          <option value="normal">Normal</option>
+          <option value="low">Baixa</option>
+        </select>
+      </div>
+
       {/* Kanban Scrollable Container */}
       <div style={{ 
         display: 'flex', 
@@ -138,7 +205,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
         width: '100%'
       }}>
         {COLUMNS.map(column => {
-          const columnOrders = orders.filter(o => o.status === column.id);
+          const columnOrders = filteredOrders.filter(o => o.status === column.id);
 
           return (
             <div key={column.id} style={{ 
@@ -211,6 +278,13 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                       {new Date(order.created_at).toLocaleDateString('pt-BR')}
                     </div>
 
+                    {order.delivery_date && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={12} />
+                        Entrega: {new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </div>
+                    )}
+
                     {/* Price */}
                     <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--color-primary-dark)', marginBottom: '12px' }}>
                       {formatPrice(order.total_price)}
@@ -232,6 +306,16 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                       }}>
                         <CreditCard size={10} />
                         {getPaymentMethodLabel(order.payment_method)}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        backgroundColor: getPriorityColor(order.priority).bg,
+                        color: getPriorityColor(order.priority).text,
+                      }}>
+                        {getPriorityLabel(order.priority)}
                       </span>
                       <button
                         onClick={() => handlePaymentToggle(order.id, order.payment_status)}
@@ -270,6 +354,34 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                         borderLeft: '3px solid var(--color-primary)'
                       }}>
                         {order.notes}
+                      </div>
+                    )}
+
+                    {order.customer_address && (
+                      <div style={{ 
+                        fontSize: '11px',
+                        display: 'flex',
+                        gap: '6px',
+                        color: 'var(--color-text-secondary)',
+                        marginBottom: '10px',
+                        lineHeight: 1.4
+                      }}>
+                        <MapPin size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                        <span>{order.customer_address}</span>
+                      </div>
+                    )}
+
+                    {order.reminder_notes && (
+                      <div style={{ 
+                        fontSize: '11px',
+                        backgroundColor: '#FFFBEB',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        color: '#92400E',
+                        borderLeft: '3px solid #F59E0B'
+                      }}>
+                        {order.reminder_notes}
                       </div>
                     )}
 
