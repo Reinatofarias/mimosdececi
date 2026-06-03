@@ -24,6 +24,15 @@ type CartContextValue = {
   openCart: () => void;
 };
 
+type ViaCepResponse = {
+  erro?: boolean;
+  logradouro?: string;
+  complemento?: string;
+  bairro?: string;
+  localidade?: string;
+  uf?: string;
+};
+
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = 'mimosdececi.cart';
 
@@ -64,6 +73,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [zipLookup, setZipLookup] = useState<{ zipCode: string; loading: boolean; error: string | null }>({ zipCode: '', loading: false, error: null });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [completedOrder, setCompletedOrder] = useState<{
     orderId: string;
@@ -78,6 +88,44 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
+
+  useEffect(() => {
+    const zipCode = customer.zipCode.replace(/\D/g, '');
+
+    if (zipCode.length !== 8) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    fetch(`https://viacep.com.br/ws/${zipCode}/json/`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Falha ao consultar CEP.');
+        const data = await response.json() as ViaCepResponse;
+        if (data.erro) throw new Error('CEP nao encontrado.');
+
+        setCustomer((current) => {
+          if (current.zipCode !== zipCode) return current;
+          return {
+            ...current,
+            street: data.logradouro || current.street,
+            complement: current.complement || data.complemento || '',
+            neighborhood: data.bairro || current.neighborhood,
+            city: data.localidade || current.city,
+            state: data.uf || current.state,
+          };
+        });
+        setZipLookup((current) => current.zipCode === zipCode ? { zipCode, loading: false, error: null } : current);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setZipLookup((current) => current.zipCode === zipCode
+          ? { zipCode, loading: false, error: error instanceof Error ? error.message : 'Nao foi possivel consultar o CEP.' }
+          : current);
+      });
+
+    return () => controller.abort();
+  }, [customer.zipCode]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
   const hideCart = pathname?.startsWith('/admin');
@@ -128,6 +176,12 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     `Observacoes: ${customer.notes}`,
   ].filter((line) => line !== '').join('\n'));
 
+  const handleZipCodeChange = (value: string) => {
+    const zipCode = value.replace(/\D/g, '').slice(0, 8);
+    setCustomer((current) => ({ ...current, zipCode }));
+    setZipLookup({ zipCode, loading: zipCode.length === 8, error: null });
+  };
+
   const handlePreOrder = async () => {
     setMessage(null);
 
@@ -177,6 +231,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setItems([]);
     setCustomer({ name: '', phone: '', zipCode: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '', notes: '' });
+    setZipLookup({ zipCode: '', loading: false, error: null });
   };
 
   const handleCloseCart = () => {
@@ -297,9 +352,14 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
               <input placeholder="Nome" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <input placeholder="WhatsApp" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <input placeholder="CEP" value={customer.zipCode} onChange={(e) => setCustomer({ ...customer, zipCode: e.target.value.replace(/\D/g, '').slice(0, 8) })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                <input placeholder="CEP" inputMode="numeric" autoComplete="postal-code" value={customer.zipCode} onChange={(e) => handleZipCodeChange(e.target.value)} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                 <input placeholder="UF" value={customer.state} onChange={(e) => setCustomer({ ...customer, state: e.target.value.toUpperCase().slice(0, 2) })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               </div>
+              {zipLookup.zipCode === customer.zipCode && (zipLookup.loading || zipLookup.error) && (
+                <div style={{ marginTop: -4, fontSize: 12, color: zipLookup.error ? '#991B1B' : 'var(--color-text-secondary)' }}>
+                  {zipLookup.loading ? 'Buscando endereco pelo CEP...' : zipLookup.error}
+                </div>
+              )}
               <input placeholder="Rua / Avenida" value={customer.street} onChange={(e) => setCustomer({ ...customer, street: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 8 }}>
                 <input placeholder="Numero" value={customer.number} onChange={(e) => setCustomer({ ...customer, number: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
