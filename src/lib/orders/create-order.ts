@@ -14,7 +14,7 @@ export type OrderInput = {
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   reminder_notes?: string;
   source?: 'admin' | 'storefront';
-  items?: { product_id: string; product_name: string; product_price: number; quantity: number }[];
+  items?: { product_id: string | null; product_name: string; product_price: number; quantity: number }[];
 };
 
 function splitOrderData(data: OrderInput) {
@@ -60,9 +60,25 @@ export async function createOrderRecord(data: OrderInput) {
   }
 
   if (data.items && data.items.length > 0) {
+    const productIds = data.items
+      .map((item) => item.product_id)
+      .filter((id): id is string => Boolean(id));
+    const existingProductIds = new Set<string>();
+
+    if (productIds.length > 0) {
+      const { data: products, error: productLookupError } = await supabase
+        .from('products')
+        .select('id')
+        .in('id', productIds);
+
+      if (!productLookupError && products) {
+        products.forEach((product) => existingProductIds.add(product.id as string));
+      }
+    }
+
     const orderItemsToInsert = data.items.map((item) => ({
       order_id: orderResult.data.id,
-      product_id: item.product_id,
+      product_id: item.product_id && existingProductIds.has(item.product_id) ? item.product_id : null,
       product_name: item.product_name,
       product_price: item.product_price,
       quantity: item.quantity,
