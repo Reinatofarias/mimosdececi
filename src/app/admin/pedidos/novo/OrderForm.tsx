@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AdminMessage } from '@/components/admin/AdminMessage';
 import { Button } from '@/components/ui/Button/Button';
 import { createOrder } from '../actions';
 import { PackagePlus, X } from 'lucide-react';
@@ -113,15 +114,9 @@ export function OrderForm({ products }: OrderFormProps) {
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
         {message && (
-          <div style={{
-            padding: '12px 14px',
-            borderRadius: 'var(--radius-md)',
-            background: message.type === 'success' ? '#ECFDF5' : '#FEF2F2',
-            color: message.type === 'success' ? '#047857' : '#991B1B',
-            border: `1px solid ${message.type === 'success' ? '#A7F3D0' : '#FECACA'}`,
-          }}>
+          <AdminMessage type={message.type} onDismiss={() => setMessage(null)}>
             {message.text}
-          </div>
+          </AdminMessage>
         )}
         
         {/* Formulário do Cliente */}

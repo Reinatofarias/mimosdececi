@@ -3,7 +3,9 @@
 import { randomUUID } from 'crypto';
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
 import { recordAuditLog } from '@/lib/audit';
+import { slugifyProductName } from '@/lib/product-rules';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getErrorMessage, isMissingColumnError } from '@/lib/supabase/errors';
 import { productSchema } from '@/lib/validations/zod';
 import { revalidatePath } from 'next/cache';
 
@@ -14,7 +16,7 @@ const ALLOWED_PRODUCT_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/w
 
 type ProductInput = {
   name: string;
-  slug: string;
+  slug?: string;
   description: string;
   short_description: string;
   price: number;
@@ -33,10 +35,6 @@ type ProductInput = {
 type UploadProductImagesResult = ActionResult & {
   urls: string[];
 };
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Erro inesperado no servidor';
-}
 
 function validateImageFile(file: File) {
   if (!ALLOWED_PRODUCT_IMAGE_TYPES.has(file.type)) {
@@ -102,6 +100,33 @@ function splitProductData(data: ProductInput | Partial<ProductInput>) {
     baseData: Object.fromEntries(Object.entries(baseData).filter(([, value]) => value !== undefined)),
     fullData: Object.fromEntries(Object.entries(fullData).filter(([, value]) => value !== undefined)),
   };
+}
+
+async function getUniqueProductSlug(name: string, currentSlug?: string | null, excludeId?: string) {
+  const supabase = createAdminClient();
+  const baseSlug = slugifyProductName(currentSlug || name) || randomUUID();
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    let query = supabase.from('products').select('id').eq('slug', candidate).limit(1);
+    if (excludeId) {
+      query = query.neq('id', excludeId);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Erro ao verificar slug do produto:', error);
+      return candidate;
+    }
+
+    if (!data || data.length === 0) {
+      return candidate;
+    }
+
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
 }
 
 async function deleteProductImageUrls(urls: string[]) {
@@ -173,10 +198,12 @@ export async function createProduct(data: ProductInput): Promise<ActionResult> {
   }
 
   const supabase = createAdminClient();
-  const { baseData, fullData } = splitProductData(parsedData.data);
+  const slug = await getUniqueProductSlug(parsedData.data.name, parsedData.data.slug);
+  const productData = { ...parsedData.data, slug };
+  const { baseData, fullData } = splitProductData(productData);
   let insertResult = await supabase.from('products').insert([fullData]).select('id, slug').single();
 
-  if (insertResult.error && insertResult.error.message.toLowerCase().includes('column')) {
+  if (insertResult.error && isMissingColumnError(insertResult.error)) {
     insertResult = await supabase.from('products').insert([baseData]).select('id, slug').single();
   }
 
@@ -277,10 +304,14 @@ export async function updateProduct(id: string, data: Partial<ProductInput>): Pr
 
   const supabase = createAdminClient();
   const { data: existingProduct } = await supabase.from('products').select('slug').eq('id', id).single();
-  const { baseData, fullData } = splitProductData(parsedData.data);
+  const slug = parsedData.data.slug && parsedData.data.slug !== existingProduct?.slug
+    ? await getUniqueProductSlug(parsedData.data.name || parsedData.data.slug, parsedData.data.slug, id)
+    : existingProduct?.slug;
+  const productData = { ...parsedData.data, slug };
+  const { baseData, fullData } = splitProductData(productData);
   let updateResult = await supabase.from('products').update(fullData).eq('id', id);
 
-  if (updateResult.error && updateResult.error.message.toLowerCase().includes('column')) {
+  if (updateResult.error && isMissingColumnError(updateResult.error)) {
     updateResult = await supabase.from('products').update(baseData).eq('id', id);
   }
 

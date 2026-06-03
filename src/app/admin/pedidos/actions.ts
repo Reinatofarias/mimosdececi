@@ -3,6 +3,7 @@
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
 import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 import { orderSchema } from '@/lib/validations/zod';
 import { revalidatePath } from 'next/cache';
 
@@ -63,7 +64,7 @@ export async function createOrder(data: OrderInput): Promise<ActionResult> {
   const { baseData, fullData } = splitOrderData(data);
   let orderResult = await supabase.from('orders').insert([fullData]).select('id').single();
 
-  if (orderResult.error && orderResult.error.message.toLowerCase().includes('column')) {
+  if (orderResult.error && isMissingColumnError(orderResult.error)) {
     orderResult = await supabase.from('orders').insert([baseData]).select('id').single();
   }
 
@@ -112,7 +113,7 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   ];
   let updateResult = await supabase.from('orders').update({ status, status_history: nextHistory }).eq('id', id);
 
-  if (updateResult.error && updateResult.error.message.toLowerCase().includes('column')) {
+  if (updateResult.error && isMissingColumnError(updateResult.error)) {
     updateResult = await supabase.from('orders').update({ status }).eq('id', id);
   }
 

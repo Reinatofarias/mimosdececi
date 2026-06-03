@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AdminMessage } from '@/components/admin/AdminMessage';
 import { Button } from '@/components/ui/Button/Button';
 import { saveSettings } from './actions';
 import type { GlobalBannerSettings, StoreSettingsFormData } from './actions';
@@ -14,13 +15,14 @@ interface SettingsFormProps {
 export function SettingsForm({ initialData }: SettingsFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const defaultBanner: GlobalBannerSettings = {
     active: false,
     text: '',
     backgroundColor: '#F4929E',
     textColor: '#FFFFFF',
   };
-  
+
   const [formData, setFormData] = useState<StoreSettingsFormData>({
     whatsapp_number: initialData.whatsapp_number || '',
     global_banner: {
@@ -32,27 +34,32 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage(null);
 
     const result = await saveSettings(formData);
-    
+
     if (result.success) {
-      alert('Configurações salvas com sucesso!');
+      setMessage({ type: 'success', text: 'Configuracoes salvas com sucesso.' });
       router.refresh();
     } else {
-      alert('Erro ao salvar: ' + result.error);
+      setMessage({ type: 'error', text: 'Erro ao salvar: ' + result.error });
     }
-    
+
     setLoading(false);
   };
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)' }}>
-      
-      {/* WhatsApp */}
+      {message && (
+        <AdminMessage type={message.type} onDismiss={() => setMessage(null)}>
+          {message.text}
+        </AdminMessage>
+      )}
+
       <section style={{ backgroundColor: 'white', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
         <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-md)' }}>Atendimento (WhatsApp)</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontWeight: 600 }}>Número do WhatsApp (apenas números)</label>
+          <label style={{ fontWeight: 600 }}>Numero do WhatsApp (apenas numeros)</label>
           <input
             type="text"
             value={formData.whatsapp_number}
@@ -63,18 +70,17 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
         </div>
       </section>
 
-      {/* Global Banner */}
       <section style={{ backgroundColor: 'white', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
         <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-md)' }}>Faixa de Aviso (Topo do site)</h2>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={formData.global_banner.active}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                global_banner: { ...formData.global_banner, active: e.target.checked } 
+              onChange={(e) => setFormData({
+                ...formData,
+                global_banner: { ...formData.global_banner, active: e.target.checked },
               })}
               style={{ width: '20px', height: '20px' }}
             />
@@ -88,11 +94,11 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
                 <input
                   type="text"
                   value={formData.global_banner.text}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    global_banner: { ...formData.global_banner, text: e.target.value } 
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    global_banner: { ...formData.global_banner, text: e.target.value },
                   })}
-                  placeholder="Ex: Frete grátis para todo o Brasil!"
+                  placeholder="Ex: Frete gratis para todo o Brasil!"
                   style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)' }}
                 />
               </div>
@@ -103,9 +109,9 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
                   <input
                     type="color"
                     value={formData.global_banner.backgroundColor}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      global_banner: { ...formData.global_banner, backgroundColor: e.target.value } 
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      global_banner: { ...formData.global_banner, backgroundColor: e.target.value },
                     })}
                     style={{ width: '60px', height: '40px', cursor: 'pointer' }}
                   />
@@ -115,9 +121,9 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
                   <input
                     type="color"
                     value={formData.global_banner.textColor}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      global_banner: { ...formData.global_banner, textColor: e.target.value } 
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      global_banner: { ...formData.global_banner, textColor: e.target.value },
                     })}
                     style={{ width: '60px', height: '40px', cursor: 'pointer' }}
                   />
@@ -130,7 +136,7 @@ export function SettingsForm({ initialData }: SettingsFormProps) {
 
       <div>
         <Button type="submit" variant="primary" size="lg" disabled={loading}>
-          {loading ? 'Salvando...' : 'Salvar Configurações'}
+          {loading ? 'Salvando...' : 'Salvar Configuracoes'}
         </Button>
       </div>
     </form>

@@ -28,6 +28,11 @@ const checks = [
     path: 'src/lib/auth.ts',
     includes: ['verifyPassword', 'pbkdf2$', 'maxAge: 8 * 60 * 60'],
   },
+  {
+    name: 'product publication rules are centralized',
+    path: 'src/lib/product-rules.ts',
+    includes: ['isProductPublic', 'PRODUCT_STATUS_LABELS', 'PRODUCT_AVAILABILITY_LABELS'],
+  },
 ];
 
 for (const check of checks) {

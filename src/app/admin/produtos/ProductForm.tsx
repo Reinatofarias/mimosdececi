@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, GripVertical, UploadCloud, X } from 'lucide-react';
+import { AdminMessage } from '@/components/admin/AdminMessage';
 import { Button } from '@/components/ui/Button/Button';
 import type { Category, Product } from '@/lib/types/database';
 import { createProduct, deleteUploadedProductImages, updateProduct, uploadImage } from './actions';
@@ -27,15 +28,6 @@ type ImageEntry = {
 function moneyToCents(value: string) {
   if (!value.trim()) return 0;
   return Math.round(parseFloat(value.replace(',', '.')) * 100);
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '');
 }
 
 function parseVariations(value: string) {
@@ -72,7 +64,6 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
     original_price: formatMoney(product?.original_price),
     category_id: product?.category_id || '',
     featured: product?.featured || false,
-    active: product?.active ?? true,
     product_status: product?.product_status || (product?.active === false ? 'draft' : 'published'),
     availability: product?.availability || 'available',
     stock_quantity: String(product?.stock_quantity || 0),
@@ -160,7 +151,6 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
       const productStatus = formData.product_status as 'draft' | 'published' | 'archived';
       const payload = {
         name: formData.name,
-        slug: mode === 'create' ? `${slugify(formData.name)}-${Date.now()}` : slugify(formData.name),
         description: formData.description,
         short_description: formData.short_description,
         price: moneyToCents(formData.price),
@@ -169,7 +159,7 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
         category_id: formData.category_id || null,
         images: orderedImages.length > 0 ? orderedImages : existingUrls,
         featured: formData.featured,
-        active: productStatus === 'published' && formData.active,
+        active: productStatus === 'published',
         product_status: productStatus,
         availability: formData.availability as 'available' | 'made_to_order' | 'sold_out' | 'hidden',
         stock_quantity: Number(formData.stock_quantity || 0),
@@ -203,16 +193,9 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 'var(--space-xl)', alignItems: 'start' }}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', fontFamily: 'var(--font-admin)' }}>
         {message && (
-          <div style={{
-            padding: '12px 16px',
-            borderRadius: 'var(--radius-md)',
-            border: `1px solid ${message.type === 'success' ? '#86efac' : '#fecaca'}`,
-            backgroundColor: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
-            color: message.type === 'success' ? '#166534' : '#991b1b',
-            fontWeight: 600,
-          }}>
+          <AdminMessage type={message.type} onDismiss={() => setMessage(null)}>
             {message.text}
-          </div>
+          </AdminMessage>
         )}
 
         <div style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-xl)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>

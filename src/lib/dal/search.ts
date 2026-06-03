@@ -11,6 +11,8 @@ export async function searchProducts(query: string): Promise<Product[]> {
     .from('products')
     .select('*')
     .eq('active', true)
+    .eq('product_status', 'published')
+    .neq('availability', 'hidden')
     .ilike('name', `%${query}%`)
     .limit(10);
 

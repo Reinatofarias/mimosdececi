@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { toggleFeatured } from './actions';
 import { Star, Search } from 'lucide-react';
+import { AdminMessage } from '@/components/admin/AdminMessage';
 import type { Product } from '@/lib/types/database';
 
 interface ShowcaseListProps {
@@ -12,16 +13,27 @@ interface ShowcaseListProps {
 
 export function ShowcaseList({ products }: ShowcaseListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleToggle = async (id: string, current: boolean) => {
+    setMessage(null);
     const res = await toggleFeatured(id, current);
-    if (!res.success) alert(res.error);
+    if (!res.success) {
+      setMessage({ type: 'error', text: res.error || 'Nao foi possivel atualizar a vitrine.' });
+    } else {
+      setMessage({ type: 'success', text: current ? 'Produto removido da vitrine.' : 'Produto destacado na vitrine.' });
+    }
   };
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
+      {message && (
+        <AdminMessage type={message.type} onDismiss={() => setMessage(null)}>
+          {message.text}
+        </AdminMessage>
+      )}
       {/* Search */}
       <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'white', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)' }}>
         <Search size={20} color="var(--color-text-secondary)" style={{ marginRight: '12px' }} />

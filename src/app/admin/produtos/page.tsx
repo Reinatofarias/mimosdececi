@@ -1,11 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { getAdminProducts } from '@/lib/dal/products';
+import { PRODUCT_AVAILABILITY_LABELS, PRODUCT_STATUS_LABELS } from '@/lib/product-rules';
 import { Button } from '@/components/ui/Button/Button';
 import { Plus } from 'lucide-react';
 import { DeleteProductButton } from './DeleteProductButton';
 
-export const revalidate = 0; // Para sempre ver os mais recentes no admin
+export const revalidate = 0;
 
 export default async function AdminProductsPage() {
   const products = await getAdminProducts();
@@ -28,20 +29,22 @@ export default async function AdminProductsPage() {
         </Link>
       </div>
 
-      <div style={{ backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div style={{ backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: '820px', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-hover)' }}>
               <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Nome</th>
-              <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Preço</th>
+              <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Preco</th>
               <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Status</th>
-              <th style={{ padding: 'var(--space-md)', fontWeight: 600, textAlign: 'right' }}>Ações</th>
+              <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Disponibilidade</th>
+              <th style={{ padding: 'var(--space-md)', fontWeight: 600 }}>Estoque</th>
+              <th style={{ padding: 'var(--space-md)', fontWeight: 600, textAlign: 'right' }}>Acoes</th>
             </tr>
           </thead>
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: 'var(--space-xl)', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                <td colSpan={6} style={{ padding: 'var(--space-xl)', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                   Nenhum produto cadastrado ainda.
                 </td>
               </tr>
@@ -54,8 +57,13 @@ export default async function AdminProductsPage() {
                   </td>
                   <td style={{ padding: 'var(--space-md)' }}>{formatPrice(product.price)}</td>
                   <td style={{ padding: 'var(--space-md)' }}>
-                    {product.active ? 'Ativo' : 'Inativo'}
+                    {PRODUCT_STATUS_LABELS[product.product_status || 'published']}
+                    {!product.active && <span style={{ marginLeft: 6, color: 'var(--color-text-muted)' }}>(inativo)</span>}
                   </td>
+                  <td style={{ padding: 'var(--space-md)' }}>
+                    {PRODUCT_AVAILABILITY_LABELS[product.availability || 'available']}
+                  </td>
+                  <td style={{ padding: 'var(--space-md)' }}>{product.stock_quantity ?? 0}</td>
                   <td style={{ padding: 'var(--space-md)', textAlign: 'right', display: 'flex', gap: 'var(--space-xs)', justifyContent: 'flex-end' }}>
                     <Link href={`/admin/produtos/${product.id}/editar`}>
                       <Button variant="ghost" size="sm">Editar</Button>

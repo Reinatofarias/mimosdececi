@@ -42,7 +42,12 @@ async function attachProductImages(products: Product[], admin = false): Promise<
 
 export async function getPublicProducts(categoryId?: string): Promise<Product[]> {
   const supabase = await createClient();
-  let query = supabase.from('products').select('*').eq('active', true);
+  let query = supabase
+    .from('products')
+    .select('*')
+    .eq('active', true)
+    .eq('product_status', 'published')
+    .neq('availability', 'hidden');
 
   if (categoryId) {
     query = query.eq('category_id', categoryId);
@@ -86,6 +91,8 @@ export async function getFeaturedProducts(): Promise<Product[]> {
     .from('products')
     .select('*')
     .eq('active', true)
+    .eq('product_status', 'published')
+    .neq('availability', 'hidden')
     .eq('featured', true)
     .order('sort_order', { ascending: true })
     .limit(8);
@@ -105,6 +112,8 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .select('*')
     .eq('slug', slug)
     .eq('active', true)
+    .eq('product_status', 'published')
+    .neq('availability', 'hidden')
     .single();
 
   if (error) {
@@ -135,7 +144,12 @@ export async function getProductById(id: string): Promise<Product | null> {
 
 export async function getPublicProductSlugs(): Promise<{ slug: string; updated_at: string }[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from('products').select('slug, updated_at').eq('active', true);
+  const { data, error } = await supabase
+    .from('products')
+    .select('slug, updated_at')
+    .eq('active', true)
+    .eq('product_status', 'published')
+    .neq('availability', 'hidden');
 
   if (error) {
     console.error('Error fetching product slugs:', error);

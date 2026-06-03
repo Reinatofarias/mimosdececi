@@ -1,14 +1,15 @@
 import React from 'react';
 import { getAdminProducts } from '@/lib/dal/products';
 import { getOrders, getAllOrderItems } from '@/lib/dal/orders';
+import { isProductPublic } from '@/lib/product-rules';
 import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy } from 'lucide-react';
 
 export const revalidate = 0;
 
 export default async function AdminDashboard() {
   const products = await getAdminProducts();
-  const activeProducts = products.filter(p => p.active);
-  const featuredProducts = products.filter(p => p.featured);
+  const activeProducts = products.filter(isProductPublic);
+  const featuredProducts = products.filter(p => p.featured && isProductPublic(p));
 
   const orders = await getOrders();
   const pendingOrders = orders.filter(o => ['new', 'confirmed', 'in_production'].includes(o.status));

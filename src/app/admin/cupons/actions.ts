@@ -3,6 +3,7 @@
 import { type ActionResult, requireAdminAction } from '@/lib/admin-auth';
 import { recordAuditLog } from '@/lib/audit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 import { revalidatePath } from 'next/cache';
 
 type CouponInput = {
@@ -60,8 +61,7 @@ export async function createCoupon(data: CouponInput): Promise<ActionResult> {
   }
 
   if (error) {
-    const isMissingColumn = error.message.includes('column') || error.message.includes('schema cache');
-    if (!isMissingColumn) {
+    if (!isMissingColumnError(error)) {
       console.error('Erro ao criar cupom:', error);
       return { success: false, error: error.message };
     }

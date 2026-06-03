@@ -3,7 +3,9 @@
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import { updateOrderStatus, updatePaymentStatus, deleteOrder } from './actions';
-import { Trash2, MessageCircle, AlertTriangle, CreditCard, Calendar, MapPin, Search } from 'lucide-react';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search } from 'lucide-react';
+import { AdminMessage } from '@/components/admin/AdminMessage';
+import { isMissingColumnError } from '@/lib/supabase/errors';
 
 interface KanbanBoardProps {
   orders: Order[];
@@ -56,7 +58,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
       if (!res.success) {
         // Rollback state on error
         setOrders(previousOrders);
-        if (res.error?.includes('column') || res.error?.includes('coluna') || res.error?.includes('payment_status')) {
+        if (isMissingColumnError({ message: res.error })) {
           setErrorAlert('Aviso do Banco de Dados: A coluna "payment_status" não foi encontrada. Certifique-se de executar as atualizações SQL no painel Supabase.');
         } else {
           setErrorAlert(res.error || 'Não foi possível atualizar o pagamento.');
@@ -135,30 +137,9 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', width: '100%' }}>
       {/* Alert Banner for Database Errors */}
       {errorAlert && (
-        <div style={{ 
-          backgroundColor: '#FFF3CD', 
-          borderLeft: '4px solid #FFC107', 
-          padding: '16px', 
-          borderRadius: 'var(--radius-md)', 
-          color: '#856404',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontSize: '14px',
-          boxShadow: 'var(--shadow-sm)',
-          marginBottom: 'var(--space-md)'
-        }}>
-          <AlertTriangle size={20} color="#856404" />
-          <div style={{ flexGrow: 1 }}>
-            {errorAlert}
-          </div>
-          <button 
-            onClick={() => setErrorAlert(null)} 
-            style={{ fontWeight: 'bold', cursor: 'pointer', opacity: 0.7 }}
-          >
-            Fecar
-          </button>
-        </div>
+        <AdminMessage type="warning" onDismiss={() => setErrorAlert(null)}>
+          {errorAlert}
+        </AdminMessage>
       )}
 
       <div style={{

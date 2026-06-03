@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const productSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no minimo 2 caracteres'),
-  slug: z.string().min(2),
+  slug: z.string().min(2).optional(),
   description: z.string().optional(),
   short_description: z.string().max(100, 'Descricao curta deve ter no maximo 100 caracteres').optional(),
   price: z.number().min(0, 'Preco nao pode ser negativo'),
