@@ -14,7 +14,7 @@ export type OrderInput = {
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   reminder_notes?: string;
   source?: 'admin' | 'storefront';
-  items?: { product_id: string | null; product_name: string; product_price: number; quantity: number }[];
+  items?: { product_id: string | null; product_name: string; product_price: number; cost_price?: number; quantity: number }[];
 };
 
 function splitOrderData(data: OrderInput) {
@@ -23,7 +23,7 @@ function splitOrderData(data: OrderInput) {
     customer_phone: data.customer_phone,
     notes: data.notes || '',
     total_price: data.total_price,
-    total_cost: data.total_cost || 0,
+    total_cost: data.total_cost ?? 0,
     payment_method: data.payment_method || 'pix',
     payment_status: data.payment_status || 'pending',
     status: 'new',
@@ -46,9 +46,70 @@ function splitOrderData(data: OrderInput) {
   };
 }
 
+type ResolvedOrderItem = {
+  order_id: string;
+  product_id: string | null;
+  product_name: string;
+  product_price: number;
+  product_cost: number;
+  quantity: number;
+};
+
+async function resolveOrderFinancials(supabase: ReturnType<typeof createAdminClient>, data: OrderInput) {
+  if (!data.items || data.items.length === 0) {
+    return { data, items: [] as Omit<ResolvedOrderItem, 'order_id'>[] };
+  }
+
+  const productIds = data.items
+    .map((item) => item.product_id)
+    .filter((id): id is string => Boolean(id));
+  const productsById = new Map<string, { id: string; name: string; price: number; cost_price: number }>();
+
+  if (productIds.length > 0) {
+    const { data: products, error: productLookupError } = await supabase
+      .from('products')
+      .select('id, name, price, cost_price')
+      .in('id', productIds);
+
+    if (!productLookupError && products) {
+      products.forEach((product) => {
+        productsById.set(product.id as string, {
+          id: product.id as string,
+          name: product.name as string,
+          price: product.price as number,
+          cost_price: (product.cost_price as number | null) ?? 0,
+        });
+      });
+    }
+  }
+
+  const items = data.items.map((item) => {
+    const product = item.product_id ? productsById.get(item.product_id) : null;
+    return {
+      product_id: product ? product.id : null,
+      product_name: product ? product.name : item.product_name,
+      product_price: product ? product.price : item.product_price,
+      product_cost: product ? product.cost_price : item.cost_price ?? 0,
+      quantity: item.quantity,
+    };
+  });
+  const itemTotalPrice = items.reduce((sum, item) => sum + item.product_price * item.quantity, 0);
+  const itemTotalCost = items.reduce((sum, item) => sum + item.product_cost * item.quantity, 0);
+
+  return {
+    data: {
+      ...data,
+      total_price: data.source === 'storefront' ? itemTotalPrice : data.total_price,
+      total_cost: itemTotalCost,
+    },
+    items,
+  };
+}
+
 export async function createOrderRecord(data: OrderInput) {
   const supabase = createAdminClient();
-  const { baseData, fullData } = splitOrderData(data);
+  const resolvedOrder = await resolveOrderFinancials(supabase, data);
+  const { baseData, fullData } = splitOrderData(resolvedOrder.data);
   let orderResult = await supabase.from('orders').insert([fullData]).select('id').single();
 
   if (orderResult.error && isMissingColumnError(orderResult.error)) {
@@ -59,32 +120,29 @@ export async function createOrderRecord(data: OrderInput) {
     return { data: null, error: orderResult.error };
   }
 
-  if (data.items && data.items.length > 0) {
-    const productIds = data.items
-      .map((item) => item.product_id)
-      .filter((id): id is string => Boolean(id));
-    const existingProductIds = new Set<string>();
-
-    if (productIds.length > 0) {
-      const { data: products, error: productLookupError } = await supabase
-        .from('products')
-        .select('id')
-        .in('id', productIds);
-
-      if (!productLookupError && products) {
-        products.forEach((product) => existingProductIds.add(product.id as string));
-      }
-    }
-
-    const orderItemsToInsert = data.items.map((item) => ({
+  if (resolvedOrder.items.length > 0) {
+    const orderItemsToInsert = resolvedOrder.items.map((item) => ({
       order_id: orderResult.data.id,
-      product_id: item.product_id && existingProductIds.has(item.product_id) ? item.product_id : null,
+      product_id: item.product_id,
       product_name: item.product_name,
       product_price: item.product_price,
+      product_cost: item.product_cost,
       quantity: item.quantity,
     }));
 
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+    let { error: itemsError } = await supabase.from('order_items').insert(orderItemsToInsert);
+
+    if (itemsError && isMissingColumnError(itemsError)) {
+      const legacyItems = orderItemsToInsert.map((item) => ({
+        order_id: item.order_id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_price: item.product_price,
+        quantity: item.quantity,
+      }));
+      const fallbackResult = await supabase.from('order_items').insert(legacyItems);
+      itemsError = fallbackResult.error;
+    }
 
     if (itemsError) {
       await supabase.from('orders').delete().eq('id', orderResult.data.id);

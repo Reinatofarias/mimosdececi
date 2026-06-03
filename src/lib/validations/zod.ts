@@ -25,6 +25,7 @@ export const orderItemSchema = z.object({
   product_id: z.string().uuid(),
   product_name: z.string(),
   product_price: z.number().min(0),
+  cost_price: z.number().min(0).optional(),
   quantity: z.number().min(1),
 });
 
@@ -44,5 +45,5 @@ export const orderSchema = z.object({
   total_cost: z.number().min(0),
   payment_method: z.enum(['pix', 'credit_card', 'debit_card', 'cash', 'pre_order']).or(z.string()),
   payment_status: z.string(),
-  items: z.array(orderItemSchema).min(1, 'O pedido deve ter pelo menos um item'),
+  items: z.array(orderItemSchema).optional().default([]),
 });

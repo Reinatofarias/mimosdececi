@@ -38,6 +38,11 @@ const checks = [
     path: 'src/app/pre-pedido/actions.ts',
     includes: ['createPreOrder', 'createOrderRecord', 'getOrderProtocol', "action: 'order.preorder'"],
   },
+  {
+    name: 'orders snapshot item costs',
+    path: 'supabase/migrations/20260603120000_order_item_cost_snapshots.sql',
+    includes: ['ADD COLUMN IF NOT EXISTS product_cost', 'UPDATE orders', 'SUM(COALESCE(product_cost, 0) * quantity)'],
+  },
 ];
 
 for (const check of checks) {

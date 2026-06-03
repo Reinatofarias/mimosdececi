@@ -84,6 +84,7 @@ CREATE TABLE order_items (
   product_id UUID REFERENCES products(id) ON DELETE SET NULL,
   product_name TEXT NOT NULL,
   product_price INTEGER NOT NULL,
+  product_cost INTEGER DEFAULT 0,
   quantity INTEGER DEFAULT 1
 );
 

@@ -21,6 +21,10 @@ export type PreOrderInput = {
 };
 
 export async function createPreOrder(data: PreOrderInput) {
+  if (data.items.length === 0) {
+    return { success: false, error: 'Adicione ao menos um produto na sacola.' };
+  }
+
   const parsedData = orderSchema.safeParse({
     ...data,
     total_cost: 0,
