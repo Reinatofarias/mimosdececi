@@ -12,9 +12,10 @@ import type { Product } from '@/lib/types/database';
 interface ProductCardProps {
   product: Product;
   index?: number;
+  variant?: 'default' | 'featured';
 }
 
-export function ProductCard({ product, index = 0 }: ProductCardProps) {
+export function ProductCard({ product, index = 0, variant = 'default' }: ProductCardProps) {
   // Helpers para formatação de moeda
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -27,10 +28,11 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   
   const imageSrc = product.images?.[0] || brandPlaceholder;
   const hasDiscount = product.original_price && product.original_price > product.price;
+  const isFeatured = variant === 'featured' || product.featured;
 
   return (
     <motion.article 
-      className={styles.card}
+      className={`${styles.card} ${variant === 'featured' ? styles.featuredCard : ''}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1, ease: 'easeOut' }}
@@ -39,6 +41,9 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       <Link href={`/produto/${product.slug}`} className={styles.imageContainer}>
         {hasDiscount && (
           <div className={styles.badge}>Oferta</div>
+        )}
+        {isFeatured && (
+          <div className={styles.featuredBadge}>Destaque</div>
         )}
         <Image
           src={imageSrc}
