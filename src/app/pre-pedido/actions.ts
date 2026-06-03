@@ -29,7 +29,7 @@ export async function createPreOrder(data: PreOrderInput) {
   });
 
   if (!parsedData.success) {
-    return { success: false, error: 'Preencha nome, WhatsApp e ao menos um produto.' };
+    return { success: false, error: 'Preencha nome, WhatsApp, endereco de entrega e ao menos um produto.' };
   }
 
   const orderResult = await createOrderRecord({

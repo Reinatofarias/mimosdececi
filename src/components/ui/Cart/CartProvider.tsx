@@ -50,7 +50,18 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     }
   });
   const [open, setOpen] = useState(false);
-  const [customer, setCustomer] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [customer, setCustomer] = useState({
+    name: '',
+    phone: '',
+    zipCode: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    notes: '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [completedOrder, setCompletedOrder] = useState<{
@@ -68,6 +79,13 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
   const hideCart = pathname?.startsWith('/admin');
+  const deliveryAddress = [
+    customer.zipCode ? `CEP ${customer.zipCode}` : '',
+    [customer.street, customer.number].filter(Boolean).join(', '),
+    customer.complement,
+    customer.neighborhood,
+    [customer.city, customer.state].filter(Boolean).join(' - '),
+  ].filter(Boolean).join(' | ');
 
   const value = useMemo<CartContextValue>(() => ({
     items,
@@ -104,7 +122,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     '',
     `Nome: ${customer.name}`,
     `Telefone: ${customer.phone}`,
-    `Endereco: ${customer.address}`,
+    `Endereco: ${deliveryAddress}`,
     `Observacoes: ${customer.notes}`,
   ].filter((line) => line !== '').join('\n'));
 
@@ -116,8 +134,8 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
       return;
     }
 
-    if (!customer.name.trim() || !customer.phone.trim()) {
-      setMessage({ type: 'error', text: 'Preencha nome e WhatsApp para registrar o pedido.' });
+    if (!customer.name.trim() || !customer.phone.trim() || !customer.zipCode.trim() || !customer.street.trim() || !customer.number.trim() || !customer.neighborhood.trim() || !customer.city.trim() || !customer.state.trim()) {
+      setMessage({ type: 'error', text: 'Preencha nome, WhatsApp, CEP e endereco de entrega.' });
       return;
     }
 
@@ -125,7 +143,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     const result = await createPreOrder({
       customer_name: customer.name.trim(),
       customer_phone: customer.phone.trim(),
-      customer_address: customer.address.trim(),
+      customer_address: deliveryAddress,
       notes: customer.notes.trim(),
       total_price: total,
       items: items.map((item) => ({
@@ -154,7 +172,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     setMessage({ type: 'success', text: 'Pedido registrado em Novos no CRM.' });
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setItems([]);
-    setCustomer({ name: '', phone: '', address: '', notes: '' });
+    setCustomer({ name: '', phone: '', zipCode: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '', notes: '' });
   };
 
   const handleCloseCart = () => {
@@ -274,7 +292,19 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
               )}
               <input placeholder="Nome" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <input placeholder="WhatsApp" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
-              <input placeholder="Endereco de entrega" value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input placeholder="CEP" value={customer.zipCode} onChange={(e) => setCustomer({ ...customer, zipCode: e.target.value.replace(/\D/g, '').slice(0, 8) })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                <input placeholder="UF" value={customer.state} onChange={(e) => setCustomer({ ...customer, state: e.target.value.toUpperCase().slice(0, 2) })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              </div>
+              <input placeholder="Rua / Avenida" value={customer.street} onChange={(e) => setCustomer({ ...customer, street: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 8 }}>
+                <input placeholder="Numero" value={customer.number} onChange={(e) => setCustomer({ ...customer, number: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                <input placeholder="Complemento" value={customer.complement} onChange={(e) => setCustomer({ ...customer, complement: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input placeholder="Bairro" value={customer.neighborhood} onChange={(e) => setCustomer({ ...customer, neighborhood: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                <input placeholder="Cidade" value={customer.city} onChange={(e) => setCustomer({ ...customer, city: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              </div>
               <textarea placeholder="Observacoes" rows={3} value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <Button
                 type="button"
