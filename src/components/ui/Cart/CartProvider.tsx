@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { MessageCircle, ShoppingBag, Trash2, X } from 'lucide-react';
 import { createPreOrder } from '@/app/pre-pedido/actions';
 import { Button } from '@/components/ui/Button/Button';
+import { getOrderProtocol } from '@/lib/orders/protocol';
 
 export type CartItem = {
   id: string;
@@ -66,6 +67,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [completedOrder, setCompletedOrder] = useState<{
     orderId: string;
+    protocol: string;
     total: number;
     customerName: string;
     customerPhone: string;
@@ -112,9 +114,9 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     },
   }), [items]);
 
-  const buildWhatsappMessage = (orderId?: string) => encodeURIComponent([
+  const buildWhatsappMessage = (protocol?: string) => encodeURIComponent([
     'Ola! Quero confirmar um pre-pedido na Mimos de Ceci.',
-    orderId ? `Pedido registrado no site: ${orderId}` : '',
+    protocol ? `Protocolo do pre-pedido: ${protocol}` : '',
     '',
     ...items.map((item) => `- ${item.quantity}x ${item.name} (${formatPrice(item.price * item.quantity)})`),
     '',
@@ -160,9 +162,11 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
       return;
     }
 
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${buildWhatsappMessage(result.orderId)}`;
+    const protocol = result.protocol || getOrderProtocol(result.orderId);
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${buildWhatsappMessage(protocol)}`;
     setCompletedOrder({
       orderId: result.orderId,
+      protocol,
       total,
       customerName: customer.name.trim(),
       customerPhone: customer.phone.trim(),
@@ -227,8 +231,8 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
                   Pedido registrado em Novos no CRM.
                 </div>
                 <div style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: 14, background: 'var(--color-bg)' }}>
-                  <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Numero do pedido</div>
-                  <strong style={{ display: 'block', wordBreak: 'break-all' }}>{completedOrder.orderId}</strong>
+                  <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Protocolo do pedido</div>
+                  <strong style={{ display: 'block', wordBreak: 'break-all' }}>{completedOrder.protocol}</strong>
                   <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 14 }}>
                     <div>
                       <div style={{ color: 'var(--color-text-secondary)' }}>Cliente</div>

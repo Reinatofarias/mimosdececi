@@ -2,6 +2,7 @@
 
 import { recordAuditLog } from '@/lib/audit';
 import { createOrderRecord } from '@/lib/orders/create-order';
+import { getOrderProtocol } from '@/lib/orders/protocol';
 import { orderSchema } from '@/lib/validations/zod';
 import { revalidatePath } from 'next/cache';
 
@@ -56,5 +57,5 @@ export async function createPreOrder(data: PreOrderInput) {
 
   revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
-  return { success: true, orderId: orderResult.data.id };
+  return { success: true, orderId: orderResult.data.id, protocol: getOrderProtocol(orderResult.data.id) };
 }

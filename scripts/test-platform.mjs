@@ -36,7 +36,7 @@ const checks = [
   {
     name: 'storefront pre-order creates CRM order',
     path: 'src/app/pre-pedido/actions.ts',
-    includes: ['createPreOrder', 'createOrderRecord', "action: 'order.preorder'"],
+    includes: ['createPreOrder', 'createOrderRecord', 'getOrderProtocol', "action: 'order.preorder'"],
   },
 ];
 
