@@ -53,6 +53,14 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderId: string;
+    total: number;
+    customerName: string;
+    customerPhone: string;
+    itemCount: number;
+    whatsappUrl: string;
+  } | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -64,6 +72,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   const value = useMemo<CartContextValue>(() => ({
     items,
     addItem(item) {
+      setCompletedOrder(null);
       setItems((prev) => {
         const existing = prev.find((cartItem) => cartItem.id === item.id);
         if (existing) {
@@ -133,10 +142,27 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
       return;
     }
 
-    setMessage({ type: 'success', text: 'Pedido registrado. Agora vamos confirmar pelo WhatsApp.' });
-    window.open(`https://wa.me/${phoneNumber}?text=${buildWhatsappMessage(result.orderId)}`, '_blank', 'noopener,noreferrer');
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${buildWhatsappMessage(result.orderId)}`;
+    setCompletedOrder({
+      orderId: result.orderId,
+      total,
+      customerName: customer.name.trim(),
+      customerPhone: customer.phone.trim(),
+      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+      whatsappUrl,
+    });
+    setMessage({ type: 'success', text: 'Pedido registrado em Novos no CRM.' });
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setItems([]);
     setCustomer({ name: '', phone: '', address: '', notes: '' });
+  };
+
+  const handleCloseCart = () => {
+    setOpen(false);
+    setMessage(null);
+    if (completedOrder) {
+      setCompletedOrder(null);
+    }
   };
 
   return (
@@ -174,10 +200,46 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
           <aside style={{ width: '420px', maxWidth: '100%', height: '100%', background: 'white', padding: 24, overflowY: 'auto', boxShadow: '-12px 0 32px rgba(0,0,0,.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <h2 style={{ margin: 0, fontSize: 24 }}>Sacola</h2>
-              <button type="button" onClick={() => setOpen(false)} style={{ border: 0, background: 'transparent', cursor: 'pointer' }}><X size={24} /></button>
+              <button type="button" onClick={handleCloseCart} style={{ border: 0, background: 'transparent', cursor: 'pointer' }}><X size={24} /></button>
             </div>
 
-            {items.length === 0 ? (
+            {completedOrder ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ padding: 14, borderRadius: 10, background: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', fontWeight: 700 }}>
+                  Pedido registrado em Novos no CRM.
+                </div>
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 10, padding: 14, background: 'var(--color-bg)' }}>
+                  <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Numero do pedido</div>
+                  <strong style={{ display: 'block', wordBreak: 'break-all' }}>{completedOrder.orderId}</strong>
+                  <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 14 }}>
+                    <div>
+                      <div style={{ color: 'var(--color-text-secondary)' }}>Cliente</div>
+                      <strong>{completedOrder.customerName}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--color-text-secondary)' }}>WhatsApp</div>
+                      <strong>{completedOrder.customerPhone}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--color-text-secondary)' }}>Itens</div>
+                      <strong>{completedOrder.itemCount}</strong>
+                    </div>
+                    <div>
+                      <div style={{ color: 'var(--color-text-secondary)' }}>Total</div>
+                      <strong>{formatPrice(completedOrder.total)}</strong>
+                    </div>
+                  </div>
+                </div>
+                <a href={completedOrder.whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <Button variant="primary" fullWidth leftIcon={<MessageCircle size={18} />}>
+                    Abrir WhatsApp novamente
+                  </Button>
+                </a>
+                <Button type="button" variant="outline" fullWidth onClick={handleCloseCart}>
+                  Continuar comprando
+                </Button>
+              </div>
+            ) : items.length === 0 ? (
               <p style={{ color: 'var(--color-text-secondary)' }}>Sua sacola esta vazia.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -194,9 +256,9 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
               </div>
             )}
 
-            <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>Total: {formatPrice(total)}</div>
+            {!completedOrder && <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>Total: {formatPrice(total)}</div>}
 
-            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {!completedOrder && <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {message && (
                 <div style={{
                   padding: '10px 12px',
@@ -225,7 +287,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
               >
                 Registrar pedido e enviar WhatsApp
               </Button>
-            </div>
+            </div>}
           </aside>
         </div>
       )}
