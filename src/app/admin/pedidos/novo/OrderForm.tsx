@@ -85,7 +85,7 @@ export function OrderForm({ products }: OrderFormProps) {
         payment_status: formData.payment_status,
         customer_address: formData.customer_address,
         delivery_date: formData.delivery_date || null,
-        priority: formData.priority,
+        priority: formData.priority as 'low' | 'normal' | 'high' | 'urgent',
         reminder_notes: formData.reminder_notes,
         items: selectedItems,
       });

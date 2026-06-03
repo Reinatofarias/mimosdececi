@@ -42,7 +42,7 @@ export const orderSchema = z.object({
   notes: z.string().optional(),
   total_price: z.number().min(0),
   total_cost: z.number().min(0),
-  payment_method: z.string(),
+  payment_method: z.enum(['pix', 'credit_card', 'debit_card', 'cash', 'pre_order']).or(z.string()),
   payment_status: z.string(),
   items: z.array(orderItemSchema).min(1, 'O pedido deve ter pelo menos um item'),
 });

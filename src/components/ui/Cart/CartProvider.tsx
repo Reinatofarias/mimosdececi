@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { MessageCircle, ShoppingBag, Trash2, X } from 'lucide-react';
+import { createPreOrder } from '@/app/pre-pedido/actions';
 import { Button } from '@/components/ui/Button/Button';
 
 export type CartItem = {
@@ -50,12 +51,15 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   });
   const [open, setOpen] = useState(false);
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', notes: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
+  const hideCart = pathname?.startsWith('/admin');
 
   const value = useMemo<CartContextValue>(() => ({
     items,
@@ -67,6 +71,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
         }
         return [...prev, { ...item, quantity: 1 }];
       });
+      setMessage(null);
       setOpen(true);
     },
     removeItem(id) {
@@ -80,9 +85,9 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     },
   }), [items]);
 
-  const hideCart = pathname?.startsWith('/admin');
-  const whatsappMessage = encodeURIComponent([
-    'Olá! Quero fazer um pré-pedido na Mimos de Ceci.',
+  const buildWhatsappMessage = (orderId?: string) => encodeURIComponent([
+    'Ola! Quero confirmar um pre-pedido na Mimos de Ceci.',
+    orderId ? `Pedido registrado no site: ${orderId}` : '',
     '',
     ...items.map((item) => `- ${item.quantity}x ${item.name} (${formatPrice(item.price * item.quantity)})`),
     '',
@@ -90,9 +95,49 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     '',
     `Nome: ${customer.name}`,
     `Telefone: ${customer.phone}`,
-    `Endereço: ${customer.address}`,
-    `Observações: ${customer.notes}`,
-  ].join('\n'));
+    `Endereco: ${customer.address}`,
+    `Observacoes: ${customer.notes}`,
+  ].filter((line) => line !== '').join('\n'));
+
+  const handlePreOrder = async () => {
+    setMessage(null);
+
+    if (items.length === 0) {
+      setMessage({ type: 'error', text: 'Adicione ao menos um produto na sacola.' });
+      return;
+    }
+
+    if (!customer.name.trim() || !customer.phone.trim()) {
+      setMessage({ type: 'error', text: 'Preencha nome e WhatsApp para registrar o pedido.' });
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await createPreOrder({
+      customer_name: customer.name.trim(),
+      customer_phone: customer.phone.trim(),
+      customer_address: customer.address.trim(),
+      notes: customer.notes.trim(),
+      total_price: total,
+      items: items.map((item) => ({
+        product_id: item.id,
+        product_name: item.name,
+        product_price: item.price,
+        quantity: item.quantity,
+      })),
+    });
+    setSubmitting(false);
+
+    if (!result.success) {
+      setMessage({ type: 'error', text: result.error || 'Nao foi possivel registrar o pedido.' });
+      return;
+    }
+
+    setMessage({ type: 'success', text: 'Pedido registrado. Agora vamos confirmar pelo WhatsApp.' });
+    window.open(`https://wa.me/${phoneNumber}?text=${buildWhatsappMessage(result.orderId)}`, '_blank', 'noopener,noreferrer');
+    setItems([]);
+    setCustomer({ name: '', phone: '', address: '', notes: '' });
+  };
 
   return (
     <CartContext.Provider value={value}>
@@ -133,7 +178,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
             </div>
 
             {items.length === 0 ? (
-              <p style={{ color: 'var(--color-text-secondary)' }}>Sua sacola está vazia.</p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>Sua sacola esta vazia.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {items.map((item) => (
@@ -152,13 +197,34 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
             <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>Total: {formatPrice(total)}</div>
 
             <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {message && (
+                <div style={{
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: message.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+                  color: message.type === 'success' ? '#047857' : '#991B1B',
+                  border: `1px solid ${message.type === 'success' ? '#A7F3D0' : '#FECACA'}`,
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}>
+                  {message.text}
+                </div>
+              )}
               <input placeholder="Nome" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               <input placeholder="WhatsApp" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
-              <input placeholder="Endereço de entrega" value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
-              <textarea placeholder="Observações" rows={3} value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
-              <a href={`https://wa.me/${phoneNumber}?text=${whatsappMessage}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', pointerEvents: items.length === 0 ? 'none' : 'auto', opacity: items.length === 0 ? .5 : 1 }}>
-                <Button variant="primary" fullWidth leftIcon={<MessageCircle size={18} />}>Enviar Pré-pedido no WhatsApp</Button>
-              </a>
+              <input placeholder="Endereco de entrega" value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <textarea placeholder="Observacoes" rows={3} value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <Button
+                type="button"
+                variant="primary"
+                fullWidth
+                leftIcon={<MessageCircle size={18} />}
+                onClick={handlePreOrder}
+                isLoading={submitting}
+                disabled={items.length === 0}
+              >
+                Registrar pedido e enviar WhatsApp
+              </Button>
             </div>
           </aside>
         </div>

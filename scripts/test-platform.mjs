@@ -33,6 +33,11 @@ const checks = [
     path: 'src/lib/product-rules.ts',
     includes: ['isProductPublic', 'PRODUCT_STATUS_LABELS', 'PRODUCT_AVAILABILITY_LABELS'],
   },
+  {
+    name: 'storefront pre-order creates CRM order',
+    path: 'src/app/pre-pedido/actions.ts',
+    includes: ['createPreOrder', 'createOrderRecord', "action: 'order.preorder'"],
+  },
 ];
 
 for (const check of checks) {
