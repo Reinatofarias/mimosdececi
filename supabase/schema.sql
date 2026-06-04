@@ -207,6 +207,17 @@ CREATE TABLE coupon_categories (
   PRIMARY KEY (coupon_id, category_id)
 );
 
+CREATE TABLE coupon_redemptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  coupon_id UUID REFERENCES coupons(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  code TEXT NOT NULL,
+  customer_phone TEXT DEFAULT '',
+  discount_amount INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(coupon_id, order_id)
+);
+
 -- 7. VITRINE (SHOWCASE)
 CREATE TABLE showcase_sections (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -262,6 +273,8 @@ CREATE INDEX idx_orders_production_due_date ON orders(production_due_date);
 CREATE INDEX idx_orders_production_assignee ON orders(production_assignee);
 CREATE INDEX idx_promotions_active_dates ON promotions(active, start_date, end_date);
 CREATE INDEX idx_coupons_code ON coupons(code);
+CREATE INDEX idx_coupon_redemptions_coupon ON coupon_redemptions(coupon_id, created_at DESC);
+CREATE INDEX idx_coupon_redemptions_phone ON coupon_redemptions(customer_phone);
 CREATE INDEX idx_product_images_product_order ON product_images(product_id, sort_order);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
@@ -299,6 +312,7 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupon_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupon_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_redemptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_occasions ENABLE ROW LEVEL SECURITY;

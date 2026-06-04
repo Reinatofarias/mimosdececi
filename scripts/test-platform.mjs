@@ -54,6 +54,21 @@ const checks = [
     includes: ['previewPreOrderCoupon', 'couponDiscount', 'customer_zip_code', 'Aplicar'],
   },
   {
+    name: 'professional coupon redemptions migration exists',
+    path: 'supabase/migrations/20260604160000_coupon_redemptions.sql',
+    includes: ['CREATE TABLE IF NOT EXISTS coupon_redemptions', 'UNIQUE(coupon_id, order_id)', 'idx_coupon_redemptions_phone'],
+  },
+  {
+    name: 'coupon application enforces scope and single use',
+    path: 'src/lib/coupons/apply.ts',
+    includes: ['coupon_redemptions', 'usage_type', 'coupon_products', 'Este cliente ja utilizou este cupom'],
+  },
+  {
+    name: 'coupon admin selects products and categories',
+    path: 'src/app/admin/cupons/novo/CouponForm.tsx',
+    includes: ['selectedProducts', 'selectedCategories', 'Categorias elegiveis', 'Produtos elegiveis'],
+  },
+  {
     name: 'CRM exposes order detail and whatsapp summary',
     path: 'src/app/admin/pedidos/KanbanBoard.tsx',
     includes: ['selectedOrder', 'buildOrderWhatsappUrl', 'Itens do pedido', 'Historico de status'],

@@ -1,6 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { getCoupons } from '@/lib/dal/coupons';
+import { getAdminCategories } from '@/lib/dal/categories';
+import { getAdminProducts } from '@/lib/dal/products';
 import { Button } from '@/components/ui/Button/Button';
 import { Plus } from 'lucide-react';
 import { CouponActions } from './CouponActions';
@@ -8,7 +10,13 @@ import { CouponActions } from './CouponActions';
 export const revalidate = 0;
 
 export default async function AdminCouponsPage() {
-  const coupons = await getCoupons();
+  const [coupons, products, categories] = await Promise.all([
+    getCoupons(),
+    getAdminProducts(),
+    getAdminCategories(),
+  ]);
+  const productNames = new Map(products.map((product) => [product.id, product.name]));
+  const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
 
   const formatDiscount = (type: string, value: number) => {
     if (type === 'percentage') return `${value}%`;
@@ -23,6 +31,18 @@ export default async function AdminCouponsPage() {
   const formatDate = (value?: string | null) => {
     if (!value) return 'Sem fim';
     return new Date(value).toLocaleDateString('pt-BR');
+  };
+
+  const formatScope = (coupon: typeof coupons[number]) => {
+    const productIds = coupon.applies_to?.product_ids?.filter(Boolean) || [];
+    const categoryIds = coupon.applies_to?.category_ids?.filter(Boolean) || [];
+    if (productIds.length === 0 && categoryIds.length === 0) return 'Toda loja';
+    const productScope = productIds.slice(0, 2).map((id) => productNames.get(id) || id).join(', ');
+    const categoryScope = categoryIds.slice(0, 2).map((id) => categoryNames.get(id) || id).join(', ');
+    return [
+      categoryScope ? `Cat: ${categoryScope}${categoryIds.length > 2 ? ` +${categoryIds.length - 2}` : ''}` : '',
+      productScope ? `Prod: ${productScope}${productIds.length > 2 ? ` +${productIds.length - 2}` : ''}` : '',
+    ].filter(Boolean).join(' | ');
   };
 
   return (
@@ -72,6 +92,8 @@ export default async function AdminCouponsPage() {
                   <td style={{ padding: 'var(--space-md)', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
                     <div>Minimo: {formatMoney(coupon.min_order_value)}</div>
                     <div>Validade: {formatDate(coupon.start_date)} - {formatDate(coupon.end_date)}</div>
+                    <div>Escopo: {formatScope(coupon)}</div>
+                    <div>Tipo: {coupon.usage_type === 'single' ? 'Uso unico por cliente' : 'Multiuso'}</div>
                   </td>
                   <td style={{ padding: 'var(--space-md)', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
                     {(coupon.current_uses ?? 0)} / {coupon.max_uses ?? 'sem limite'}

@@ -41,7 +41,7 @@ export async function createPreOrder(data: PreOrderInput) {
     return { success: false, error: 'Adicione ao menos um produto na sacola.' };
   }
 
-  const coupon = await applyCouponToCart(data.coupon_code, data.items);
+  const coupon = await applyCouponToCart(data.coupon_code, data.items, { customer_phone: data.customer_phone });
   if (!coupon.valid) {
     return { success: false, error: coupon.message || 'Cupom invalido.' };
   }
@@ -74,7 +74,11 @@ export async function createPreOrder(data: PreOrderInput) {
   }
 
   if (coupon.code && coupon.discountAmount > 0) {
-    await registerCouponUse(coupon.code);
+    await registerCouponUse(coupon.code, {
+      orderId: orderResult.data.id,
+      customerPhone: parsedData.data.customer_phone,
+      discountAmount: coupon.discountAmount,
+    });
   }
 
   await recordAuditLog({

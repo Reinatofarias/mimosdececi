@@ -27,11 +27,18 @@ type CouponInput = {
 
 function getBaseCouponData(data: CouponInput) {
   return {
-    code: data.code,
-    description: data.description,
+    code: data.code.trim().toUpperCase().replace(/\s+/g, ''),
+    description: data.description.trim(),
     discount_type: data.discount_type,
-    discount_value: data.discount_value,
+    discount_value: Math.max(0, Number(data.discount_value || 0)),
     active: data.active,
+  };
+}
+
+function normalizeScope(data: CouponInput) {
+  return {
+    product_ids: [...new Set(data.applies_to?.product_ids?.filter(Boolean) || [])],
+    category_ids: [...new Set(data.applies_to?.category_ids?.filter(Boolean) || [])],
   };
 }
 
@@ -39,18 +46,26 @@ export async function createCoupon(data: CouponInput): Promise<ActionResult> {
   const authError = await requireAdminAction();
   if (authError) return authError;
 
+  if (!data.code.trim()) return { success: false, error: 'Codigo do cupom e obrigatorio.' };
+  if (Number(data.discount_value || 0) <= 0) return { success: false, error: 'Valor do desconto deve ser maior que zero.' };
+  if (data.discount_type === 'percentage' && Number(data.discount_value) > 100) return { success: false, error: 'Desconto percentual nao pode passar de 100%.' };
+  if (data.start_date && data.end_date && new Date(data.end_date).getTime() <= new Date(data.start_date).getTime()) {
+    return { success: false, error: 'Fim da validade deve ser posterior ao inicio.' };
+  }
+
   const supabase = createAdminClient();
+  const scope = normalizeScope(data);
   const fullData = {
     ...getBaseCouponData(data),
-    min_order_value: data.min_order_value ?? 0,
-    max_discount_value: data.max_discount_value ?? null,
-    max_uses: data.max_uses ?? 1000,
+    min_order_value: Math.max(0, Number(data.min_order_value ?? 0)),
+    max_discount_value: data.max_discount_value ? Math.max(0, Number(data.max_discount_value)) : null,
+    max_uses: data.max_uses ? Math.max(1, Number(data.max_uses)) : 1000,
     current_uses: 0,
     start_date: data.start_date || new Date().toISOString(),
     end_date: data.end_date || new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString(),
     usage_type: data.usage_type ?? 'multiple',
-    applies_to: data.applies_to ?? { product_ids: [], category_ids: [] },
-    notes: data.notes ?? null,
+    applies_to: scope,
+    notes: data.notes?.trim() || null,
   };
 
   let insertedId: string | undefined;
@@ -83,11 +98,24 @@ export async function createCoupon(data: CouponInput): Promise<ActionResult> {
     insertedId = fallbackInserted?.id;
   }
 
+  if (insertedId && !error) {
+    const productRows = scope.product_ids.map((productId) => ({ coupon_id: insertedId, product_id: productId }));
+    const categoryRows = scope.category_ids.map((categoryId) => ({ coupon_id: insertedId, category_id: categoryId }));
+    if (productRows.length > 0) {
+      const { error: productScopeError } = await supabase.from('coupon_products').insert(productRows);
+      if (productScopeError && !isMissingColumnError(productScopeError)) console.error('Erro ao salvar escopo de produtos do cupom:', productScopeError);
+    }
+    if (categoryRows.length > 0) {
+      const { error: categoryScopeError } = await supabase.from('coupon_categories').insert(categoryRows);
+      if (categoryScopeError && !isMissingColumnError(categoryScopeError)) console.error('Erro ao salvar escopo de categorias do cupom:', categoryScopeError);
+    }
+  }
+
   await recordAuditLog({
     action: 'coupon.create',
     entityType: 'coupon',
     entityId: insertedId,
-    metadata: { code: data.code, discount_type: data.discount_type },
+    metadata: { code: fullData.code, discount_type: data.discount_type, productScope: scope.product_ids.length, categoryScope: scope.category_ids.length },
   });
 
   revalidatePath('/admin/cupons');
