@@ -2,14 +2,16 @@
 
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
-import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails } from './actions';
-import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search, Eye, X, Save } from 'lucide-react';
+import type { Product } from '@/lib/types/database';
+import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails, updateOrderItems } from './actions';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, PackagePlus, Search, Eye, X, Save } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { isMissingColumnError } from '@/lib/supabase/errors';
 import { getOrderProtocol } from '@/lib/orders/protocol';
 
 interface KanbanBoardProps {
   orders: Order[];
+  products: Product[];
 }
 
 type OrderStatus = Order['status'];
@@ -28,6 +30,14 @@ type EditableOrderDetails = {
   notes: string;
   reminder_notes: string;
 };
+type EditableOrderItem = {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  product_price: number;
+  product_cost: number;
+  quantity: number;
+};
 
 const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string }[] = [
   { id: 'new', title: 'Novos', color: '#EF7A88', bgLight: '#FFF0F2' },
@@ -37,14 +47,17 @@ const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string 
   { id: 'delivered', title: 'Entregues', color: '#4D9078', bgLight: '#EBF2EF' },
 ];
 
-export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
+export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailDraft, setDetailDraft] = useState<EditableOrderDetails | null>(null);
+  const [itemDraft, setItemDraft] = useState<EditableOrderItem[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const toDateTimeLocal = (value?: string | null) => {
@@ -71,6 +84,15 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
       notes: order.notes || '',
       reminder_notes: order.reminder_notes || '',
     });
+    setItemDraft((order.order_items || []).map((item) => ({
+      id: item.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      product_price: item.product_price,
+      product_cost: item.product_cost || 0,
+      quantity: item.quantity,
+    })));
+    setSelectedProductId('');
   };
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
@@ -194,6 +216,57 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
     setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
     setSelectedOrder(updatedOrder);
     setErrorAlert('Detalhes do pedido atualizados.');
+  };
+
+  const handleAddProductItem = () => {
+    const product = products.find((item) => item.id === selectedProductId);
+    if (!product) return;
+    setItemDraft((current) => {
+      const existing = current.find((item) => item.product_id === product.id);
+      if (existing) {
+        return current.map((item) => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...current, {
+        id: `draft-${product.id}`,
+        product_id: product.id,
+        product_name: product.name,
+        product_price: product.price,
+        product_cost: product.cost_price || 0,
+        quantity: 1,
+      }];
+    });
+    setSelectedProductId('');
+  };
+
+  const handleSaveItems = async () => {
+    if (!selectedOrder) return;
+    setSavingItems(true);
+    setErrorAlert(null);
+    const result = await updateOrderItems(selectedOrder.id, itemDraft.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      product_price: item.product_price,
+      product_cost: item.product_cost,
+      quantity: item.quantity,
+    })));
+    setSavingItems(false);
+
+    if (!result.success || !result.order) {
+      setErrorAlert(result.error || 'Nao foi possivel salvar os itens do pedido.');
+      return;
+    }
+
+    const updatedOrder: Order = {
+      ...selectedOrder,
+      total_price: result.order.total_price,
+      total_cost: result.order.total_cost,
+      discount_amount: result.order.discount_amount,
+      order_items: result.order.order_items,
+    };
+    setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+    setSelectedOrder(updatedOrder);
+    setItemDraft(result.order.order_items.map((item) => ({ ...item, product_cost: item.product_cost || 0 })));
+    setErrorAlert('Itens do pedido atualizados.');
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -579,7 +652,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                 <h2 style={{ margin: '4px 0 0', fontSize: 22 }}>{selectedOrder.customer_name}</h2>
                 <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)' }}>{selectedOrder.source === 'storefront' ? 'Pedido recebido pelo site' : 'Pedido criado no admin'}</p>
               </div>
-              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); setItemDraft([]); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
             </header>
             <div style={{ padding: 20, display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
@@ -606,6 +679,44 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                     </div>
                   ))}
                   {(selectedOrder.order_items || []).length === 0 && <span style={{ color: 'var(--color-text-secondary)' }}>Pedido personalizado sem itens cadastrados.</span>}
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, display: 'grid', gap: 10 }}>
+                <h3 style={{ fontSize: 15, margin: 0 }}>Editar itens</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+                  <select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                    <option value="">Adicionar produto cadastrado...</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>{product.name} · {formatPrice(product.price)}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={handleAddProductItem} disabled={!selectedProductId} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid var(--color-border)', borderRadius: 8, padding: '0 12px', background: 'var(--color-surface)', cursor: 'pointer', fontWeight: 700 }}>
+                    <PackagePlus size={16} />
+                    Adicionar
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {itemDraft.map((item, index) => (
+                    <div key={`${item.id}-${index}`} style={{ display: 'grid', gridTemplateColumns: '1fr 76px 90px 34px', gap: 8, alignItems: 'center' }}>
+                      <input value={item.product_name} onChange={(event) => setItemDraft((current) => current.map((draft, draftIndex) => draftIndex === index ? { ...draft, product_name: event.target.value, product_id: null } : draft))} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                      <input type="number" min={1} value={item.quantity} onChange={(event) => setItemDraft((current) => current.map((draft, draftIndex) => draftIndex === index ? { ...draft, quantity: Math.max(1, Number(event.target.value || 1)) } : draft))} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                      <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>{formatPrice(item.product_price * item.quantity)}</span>
+                      <button type="button" onClick={() => setItemDraft((current) => current.filter((_, draftIndex) => draftIndex !== index))} style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-danger)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ))}
+                  {itemDraft.length === 0 && <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>Nenhum item no pedido.</span>}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                    Total previsto: {formatPrice(Math.max(0, itemDraft.reduce((sum, item) => sum + item.product_price * item.quantity, 0) - (selectedOrder.discount_amount || 0)))}
+                  </span>
+                  <button type="button" onClick={handleSaveItems} disabled={savingItems || itemDraft.length === 0} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: 'var(--color-primary)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                    <Save size={16} />
+                    {savingItems ? 'Salvando...' : 'Salvar itens'}
+                  </button>
                 </div>
               </div>
 

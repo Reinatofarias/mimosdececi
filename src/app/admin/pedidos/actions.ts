@@ -28,6 +28,14 @@ type OrderDetailsInput = {
   reminder_notes?: string;
 };
 
+type OrderItemInput = {
+  product_id: string | null;
+  product_name: string;
+  product_price: number;
+  product_cost?: number;
+  quantity: number;
+};
+
 function buildAddress(data: OrderDetailsInput) {
   return [
     data.customer_zip_code ? `CEP ${data.customer_zip_code}` : '',
@@ -36,6 +44,11 @@ function buildAddress(data: OrderDetailsInput) {
     data.customer_neighborhood,
     [data.customer_city, data.customer_state].filter(Boolean).join(' - '),
   ].filter(Boolean).join(' | ');
+}
+
+function addQuantity(map: Map<string, number>, productId: string | null | undefined, quantity: number) {
+  if (!productId) return;
+  map.set(productId, (map.get(productId) || 0) + quantity);
 }
 
 export async function createOrder(data: OrderInput): Promise<ActionResult> {
@@ -203,6 +216,182 @@ export async function updateOrderDetails(id: string, data: OrderDetailsInput): P
   revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
   return { success: true };
+}
+
+export async function updateOrderItems(id: string, items: OrderItemInput[]): Promise<ActionResult & {
+  order?: {
+    total_price: number;
+    total_cost: number;
+    discount_amount: number;
+    order_items: {
+      id: string;
+      product_id: string | null;
+      product_name: string;
+      product_price: number;
+      product_cost: number;
+      quantity: number;
+    }[];
+  };
+}> {
+  const authError = await requireAdminAction();
+  if (authError) return authError;
+
+  const normalizedItems = items
+    .map((item) => ({
+      product_id: item.product_id || null,
+      product_name: item.product_name.trim(),
+      product_price: Number(item.product_price || 0),
+      product_cost: Number(item.product_cost || 0),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+    }))
+    .filter((item) => item.product_name && item.product_price >= 0);
+
+  if (normalizedItems.length === 0) {
+    return { success: false, error: 'Inclua ao menos um item no pedido.' };
+  }
+
+  const supabase = createAdminClient();
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('discount_amount, stock_decremented_at, order_items(product_id, quantity)')
+    .eq('id', id)
+    .single();
+
+  if (orderError) {
+    console.error('Erro ao buscar pedido para editar itens:', orderError);
+    return { success: false, error: orderError.message };
+  }
+
+  const productIds = normalizedItems
+    .map((item) => item.product_id)
+    .filter((productId): productId is string => Boolean(productId));
+  const productsById = new Map<string, { id: string; name: string; price: number; cost_price: number }>();
+
+  if (productIds.length > 0) {
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, name, price, cost_price')
+      .in('id', productIds);
+
+    (products || []).forEach((product) => {
+      productsById.set(product.id as string, {
+        id: product.id as string,
+        name: product.name as string,
+        price: product.price as number,
+        cost_price: (product.cost_price as number | null) || 0,
+      });
+    });
+  }
+
+  const resolvedItems = normalizedItems.map((item) => {
+    const product = item.product_id ? productsById.get(item.product_id) : null;
+    return {
+      product_id: product ? product.id : item.product_id,
+      product_name: product ? product.name : item.product_name,
+      product_price: product ? product.price : item.product_price,
+      product_cost: product ? product.cost_price : item.product_cost,
+      quantity: item.quantity,
+    };
+  });
+  const subtotal = resolvedItems.reduce((sum, item) => sum + item.product_price * item.quantity, 0);
+  const totalCost = resolvedItems.reduce((sum, item) => sum + item.product_cost * item.quantity, 0);
+  const discountAmount = Math.min(Number(order?.discount_amount || 0), subtotal);
+  const totalPrice = Math.max(0, subtotal - discountAmount);
+
+  const deleteResult = await supabase.from('order_items').delete().eq('order_id', id);
+  if (deleteResult.error) {
+    console.error('Erro ao limpar itens do pedido:', deleteResult.error);
+    return { success: false, error: deleteResult.error.message };
+  }
+
+  const rowsToInsert = resolvedItems.map((item) => ({
+    order_id: id,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    product_price: item.product_price,
+    product_cost: item.product_cost,
+    quantity: item.quantity,
+  }));
+  let insertResult = await supabase.from('order_items').insert(rowsToInsert).select('id, product_id, product_name, product_price, product_cost, quantity');
+
+  if (insertResult.error && isMissingColumnError(insertResult.error)) {
+    const legacyRows = rowsToInsert.map((item) => ({
+      order_id: item.order_id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      product_price: item.product_price,
+      quantity: item.quantity,
+    }));
+    insertResult = await supabase.from('order_items').insert(legacyRows).select('id, product_id, product_name, product_price, quantity');
+  }
+
+  if (insertResult.error || !insertResult.data) {
+    console.error('Erro ao inserir itens do pedido:', insertResult.error);
+    return { success: false, error: insertResult.error?.message || 'Nao foi possivel salvar os itens.' };
+  }
+
+  const updateResult = await supabase
+    .from('orders')
+    .update({ total_price: totalPrice, total_cost: totalCost, discount_amount: discountAmount })
+    .eq('id', id);
+
+  if (updateResult.error) {
+    console.error('Erro ao atualizar totais do pedido:', updateResult.error);
+    return { success: false, error: updateResult.error.message };
+  }
+
+  if (order?.stock_decremented_at) {
+    const previousQuantities = new Map<string, number>();
+    const nextQuantities = new Map<string, number>();
+    ((order.order_items || []) as { product_id: string | null; quantity: number }[]).forEach((item) => addQuantity(previousQuantities, item.product_id, Number(item.quantity || 0)));
+    resolvedItems.forEach((item) => addQuantity(nextQuantities, item.product_id, item.quantity));
+    const affectedProducts = new Set([...previousQuantities.keys(), ...nextQuantities.keys()]);
+
+    for (const productId of affectedProducts) {
+      const delta = (nextQuantities.get(productId) || 0) - (previousQuantities.get(productId) || 0);
+      if (delta === 0) continue;
+      const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', productId).single();
+      await supabase
+        .from('products')
+        .update({ stock_quantity: Math.max(0, Number(product?.stock_quantity || 0) - delta) })
+        .eq('id', productId);
+    }
+  }
+
+  const returnedItems = (insertResult.data as {
+    id: string;
+    product_id: string | null;
+    product_name: string;
+    product_price: number;
+    product_cost?: number;
+    quantity: number;
+  }[]).map((item, index) => ({
+    id: item.id,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    product_price: item.product_price,
+    product_cost: item.product_cost ?? resolvedItems[index]?.product_cost ?? 0,
+    quantity: item.quantity,
+  }));
+
+  await recordAuditLog({
+    action: 'order.items_update',
+    entityType: 'order',
+    entityId: id,
+    metadata: { itemCount: returnedItems.length, total_price: totalPrice, total_cost: totalCost },
+  });
+  revalidatePath('/admin');
+  revalidatePath('/admin/pedidos');
+  revalidatePath('/admin/produtos');
+  return {
+    success: true,
+    order: {
+      total_price: totalPrice,
+      total_cost: totalCost,
+      discount_amount: discountAmount,
+      order_items: returnedItems,
+    },
+  };
 }
 
 export async function deleteOrder(id: string): Promise<ActionResult> {

@@ -64,6 +64,16 @@ const checks = [
     includes: ['detailDraft', 'handleSaveDetails', 'Salvar detalhes do pedido'],
   },
   {
+    name: 'CRM edits order items and totals',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['itemDraft', 'handleSaveItems', 'Editar itens', 'Salvar itens'],
+  },
+  {
+    name: 'order item updates recalculate finance',
+    path: 'src/app/admin/pedidos/actions.ts',
+    includes: ['updateOrderItems', 'totalCost', 'discountAmount', 'order.items_update'],
+  },
+  {
     name: 'product form uses structured variations',
     path: 'src/app/admin/produtos/ProductForm.tsx',
     includes: ['variationEntries', 'Nome da variação', 'Acréscimo R$'],
