@@ -33,6 +33,16 @@ export interface Product {
   updated_at: string;
 }
 
+export interface OrderAddress {
+  customer_zip_code?: string;
+  customer_street?: string;
+  customer_number?: string;
+  customer_complement?: string;
+  customer_neighborhood?: string;
+  customer_city?: string;
+  customer_state?: string;
+}
+
 export interface ProductVariation {
   name: string;
   price_delta?: number;

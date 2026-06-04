@@ -2,6 +2,8 @@ import { createAdminClient } from '../supabase/admin';
 
 export type Order = {
   id: string;
+  order_code?: string | null;
+  source?: 'admin' | 'storefront' | string;
   customer_name: string;
   customer_phone: string;
   status: 'new' | 'confirmed' | 'in_production' | 'ready' | 'delivered' | 'cancelled';
@@ -14,13 +16,31 @@ export type Order = {
   discount_amount: number;
   cancelled_reason: string | null;
   customer_address?: string;
+  customer_zip_code?: string;
+  customer_street?: string;
+  customer_number?: string;
+  customer_complement?: string;
+  customer_neighborhood?: string;
+  customer_city?: string;
+  customer_state?: string;
   delivery_date?: string | null;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   reminder_notes?: string;
   attachments?: { label: string; url: string }[];
   status_history?: { status: string; at: string; note?: string }[];
+  stock_decremented_at?: string | null;
+  order_items?: OrderItem[];
   created_at: string;
   updated_at: string;
+};
+
+export type OrderItem = {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  product_price: number;
+  product_cost?: number;
+  quantity: number;
 };
 
 export type OrderItemSalesRow = {
@@ -33,7 +53,7 @@ export async function getOrders(): Promise<Order[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('orders')
-    .select('*')
+    .select('*, order_items(*)')
     .order('created_at', { ascending: false });
 
   if (error) {

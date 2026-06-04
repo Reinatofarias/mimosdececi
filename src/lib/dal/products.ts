@@ -1,5 +1,6 @@
 import { createAdminClient } from '../supabase/admin';
 import { createClient } from '../supabase/server';
+import { isProductPublic } from '../product-rules';
 import type { Product, ProductImage } from '../types/database';
 
 async function attachProductImages(products: Product[], admin = false): Promise<Product[]> {
@@ -60,7 +61,7 @@ export async function getPublicProducts(categoryId?: string): Promise<Product[]>
     return [];
   }
 
-  return attachProductImages(data as Product[]);
+  return attachProductImages((data as Product[]).filter(isProductPublic));
 }
 
 export async function getAdminProducts(categoryId?: string): Promise<Product[]> {
@@ -102,7 +103,7 @@ export async function getFeaturedProducts(): Promise<Product[]> {
     return [];
   }
 
-  return attachProductImages(data as Product[]);
+  return attachProductImages((data as Product[]).filter(isProductPublic));
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -121,7 +122,9 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     return null;
   }
 
-  const [product] = await attachProductImages([data as Product]);
+  const publicProduct = data as Product;
+  if (!isProductPublic(publicProduct)) return null;
+  const [product] = await attachProductImages([publicProduct]);
   return product;
 }
 
@@ -146,7 +149,7 @@ export async function getPublicProductSlugs(): Promise<{ slug: string; updated_a
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('products')
-    .select('slug, updated_at')
+    .select('slug, updated_at, active, product_status, availability, stock_quantity')
     .eq('active', true)
     .eq('product_status', 'published')
     .neq('availability', 'hidden');
@@ -156,5 +159,5 @@ export async function getPublicProductSlugs(): Promise<{ slug: string; updated_a
     return [];
   }
 
-  return data as { slug: string; updated_at: string }[];
+  return (data as Product[]).filter(isProductPublic).map((product) => ({ slug: product.slug, updated_at: product.updated_at }));
 }

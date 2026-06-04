@@ -146,7 +146,7 @@ async function deleteProductImageUrls(urls: string[]) {
   }
 }
 
-async function syncProductImages(productId: string, urls: string[]) {
+async function syncProductImages(productId: string, urls: string[], productName = 'Produto') {
   const supabase = createAdminClient();
   const { error: deleteError } = await supabase.from('product_images').delete().eq('product_id', productId);
 
@@ -163,7 +163,7 @@ async function syncProductImages(productId: string, urls: string[]) {
     product_id: productId,
     storage_path: getProductImageStoragePath(url) || url,
     public_url: url,
-    alt_text: '',
+    alt_text: `${productName} - foto ${index + 1}`,
     sort_order: index,
     is_cover: index === 0,
   }));
@@ -213,7 +213,7 @@ export async function createProduct(data: ProductInput): Promise<ActionResult> {
     return { success: false, error: insertResult.error?.message || 'Erro ao criar produto.' };
   }
 
-  await syncProductImages(insertResult.data.id, parsedData.data.images || []);
+  await syncProductImages(insertResult.data.id, parsedData.data.images || [], parsedData.data.name);
   await recordAuditLog({
     action: 'create',
     entityType: 'product',
@@ -303,7 +303,7 @@ export async function updateProduct(id: string, data: Partial<ProductInput>): Pr
   }
 
   const supabase = createAdminClient();
-  const { data: existingProduct } = await supabase.from('products').select('slug').eq('id', id).single();
+  const { data: existingProduct } = await supabase.from('products').select('slug, images, name').eq('id', id).single();
   const slug = parsedData.data.slug && parsedData.data.slug !== existingProduct?.slug
     ? await getUniqueProductSlug(parsedData.data.name || parsedData.data.slug, parsedData.data.slug, id)
     : existingProduct?.slug;
@@ -321,7 +321,13 @@ export async function updateProduct(id: string, data: Partial<ProductInput>): Pr
   }
 
   if (parsedData.data.images) {
-    await syncProductImages(id, parsedData.data.images);
+    const previousUrls = ((existingProduct?.images as string[] | null) || []);
+    const nextUrls = parsedData.data.images;
+    const removedUrls = previousUrls.filter((url) => !nextUrls.includes(url));
+    await syncProductImages(id, nextUrls, parsedData.data.name || existingProduct?.name || 'Produto');
+    if (removedUrls.length > 0) {
+      await deleteProductImageUrls(removedUrls);
+    }
   }
 
   await recordAuditLog({ action: 'update', entityType: 'product', entityId: id, metadata: { name: parsedData.data.name } });

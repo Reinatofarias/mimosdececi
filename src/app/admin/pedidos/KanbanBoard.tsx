@@ -3,9 +3,10 @@
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import { updateOrderStatus, updatePaymentStatus, deleteOrder } from './actions';
-import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search } from 'lucide-react';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search, Eye, X } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { isMissingColumnError } from '@/lib/supabase/errors';
+import { getOrderProtocol } from '@/lib/orders/protocol';
 
 interface KanbanBoardProps {
   orders: Order[];
@@ -26,6 +27,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
@@ -101,13 +103,31 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
     }
   };
 
+  const getOrderCode = (order: Order) => order.order_code || getOrderProtocol(order.id);
+
+  const buildOrderWhatsappUrl = (order: Order) => {
+    const items = order.order_items || [];
+    const message = [
+      `Ola, ${order.customer_name}! Aqui e a Mimos de Ceci sobre o pedido ${getOrderCode(order)}.`,
+      '',
+      ...items.map((item) => `- ${item.quantity}x ${item.product_name} (${formatPrice(item.product_price * item.quantity)})`),
+      order.discount_amount ? `Desconto: -${formatPrice(order.discount_amount)}` : '',
+      `Total: ${formatPrice(order.total_price)}`,
+      order.delivery_date ? `Entrega combinada: ${new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '',
+      order.customer_address ? `Endereco: ${order.customer_address}` : '',
+    ].filter(Boolean).join('\n');
+    return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  };
+
   const filteredOrders = orders.filter((order) => {
     const searchable = [
       order.customer_name,
       order.customer_phone,
+      order.order_code,
       order.notes,
       order.customer_address,
       order.reminder_notes,
+      ...(order.order_items || []).map((item) => item.product_name),
     ].filter(Boolean).join(' ').toLowerCase();
 
     const matchesSearch = searchable.includes(searchTerm.trim().toLowerCase());
@@ -233,7 +253,10 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                   }} className="kanban-card">
                     {/* Card Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <strong style={{ fontSize: '14px', color: 'var(--color-text)', fontWeight: 600 }}>{order.customer_name}</strong>
+                      <div>
+                        <strong style={{ fontSize: '14px', color: 'var(--color-text)', fontWeight: 600 }}>{order.customer_name}</strong>
+                        <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 2 }}>{getOrderCode(order)} · {order.source === 'storefront' ? 'Site' : 'Admin'}</div>
+                      </div>
                       <button 
                         onClick={() => handleDelete(order.id)}
                         disabled={isPending}
@@ -269,6 +292,9 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                     {/* Price */}
                     <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--color-primary-dark)', marginBottom: '12px' }}>
                       {formatPrice(order.total_price)}
+                      <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                        Lucro: {formatPrice((order.total_price || 0) - (order.total_cost || 0))}
+                      </span>
                     </div>
 
                     {/* Custom Badges (Payment Info) */}
@@ -298,6 +324,11 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                       }}>
                         {getPriorityLabel(order.priority)}
                       </span>
+                      {order.coupon_code && (
+                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px', backgroundColor: '#EEF2FF', color: '#3730A3', fontWeight: 700 }}>
+                          {order.coupon_code}
+                        </span>
+                      )}
                       <button
                         onClick={() => handlePaymentToggle(order.id, order.payment_status)}
                         disabled={isPending}
@@ -388,8 +419,27 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                         ))}
                       </select>
 
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(order)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '28px',
+                          height: '28px',
+                          border: '1px solid var(--color-border)',
+                          backgroundColor: 'var(--color-surface)',
+                          color: 'var(--color-text)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                        title="Ver detalhes do pedido"
+                      >
+                        <Eye size={15} />
+                      </button>
                       <a 
-                        href={`https://wa.me/55${order.customer_phone.replace(/\D/g, '')}`} 
+                        href={buildOrderWhatsappUrl(order)}
                         target="_blank" 
                         rel="noopener noreferrer"
                         style={{ 
@@ -443,6 +493,76 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
           background-color: var(--color-whatsapp-hover) !important;
         }
       `}</style>
+      {selectedOrder && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(17,17,21,.48)', display: 'grid', placeItems: 'center', padding: 20 }}>
+          <section style={{ width: 'min(760px, 100%)', maxHeight: '88vh', overflowY: 'auto', background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', boxShadow: '0 24px 70px rgba(0,0,0,.24)' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, padding: '18px 20px', borderBottom: '1px solid var(--color-border)' }}>
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontWeight: 700 }}>{getOrderCode(selectedOrder)}</div>
+                <h2 style={{ margin: '4px 0 0', fontSize: 22 }}>{selectedOrder.customer_name}</h2>
+                <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)' }}>{selectedOrder.source === 'storefront' ? 'Pedido recebido pelo site' : 'Pedido criado no admin'}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedOrder(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
+            </header>
+            <div style={{ padding: 20, display: 'grid', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                {[
+                  ['Total', formatPrice(selectedOrder.total_price || 0)],
+                  ['Custo', formatPrice(selectedOrder.total_cost || 0)],
+                  ['Lucro', formatPrice((selectedOrder.total_price || 0) - (selectedOrder.total_cost || 0))],
+                  ['Pagamento', selectedOrder.payment_status === 'paid' ? 'Pago' : 'Pendente'],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 12 }}>
+                    <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{label}</div>
+                    <strong>{value}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: 15, marginBottom: 8 }}>Itens do pedido</h3>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {(selectedOrder.order_items || []).map((item) => (
+                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, borderBottom: '1px solid var(--color-border)', paddingBottom: 8 }}>
+                      <span>{item.quantity}x {item.product_name}</span>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>{formatPrice(item.product_price * item.quantity)} · custo {formatPrice((item.product_cost || 0) * item.quantity)}</span>
+                    </div>
+                  ))}
+                  {(selectedOrder.order_items || []).length === 0 && <span style={{ color: 'var(--color-text-secondary)' }}>Pedido personalizado sem itens cadastrados.</span>}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <div>
+                  <h3 style={{ fontSize: 15, marginBottom: 8 }}>Cliente e entrega</h3>
+                  <p style={{ margin: 0, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{selectedOrder.customer_phone}<br />{selectedOrder.customer_address || 'Endereco nao informado'}</p>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 15, marginBottom: 8 }}>Observacoes</h3>
+                  <p style={{ margin: 0, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{selectedOrder.notes || selectedOrder.reminder_notes || 'Sem observacoes.'}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: 15, marginBottom: 8 }}>Historico de status</h3>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {((selectedOrder.status_history || []) as { status: string; at: string; note?: string }[]).map((entry, index) => (
+                    <div key={`${entry.status}-${entry.at}-${index}`} style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                      {new Date(entry.at).toLocaleString('pt-BR')} · {entry.status}{entry.note ? ` · ${entry.note}` : ''}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <a href={buildOrderWhatsappUrl(selectedOrder)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                <button type="button" style={{ width: '100%', border: 0, borderRadius: 8, padding: '12px 14px', background: 'var(--color-whatsapp)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                  Abrir WhatsApp com resumo do pedido
+                </button>
+              </a>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

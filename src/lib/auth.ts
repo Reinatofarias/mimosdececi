@@ -2,6 +2,10 @@ import { pbkdf2Sync, timingSafeEqual } from 'crypto';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
+
 declare module 'next-auth' {
   interface User {
     role?: string;
@@ -44,6 +48,25 @@ export function verifyPassword(password: string, storedValue?: string) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+function isLoginLocked(identifier: string) {
+  const attempt = loginAttempts.get(identifier);
+  return Boolean(attempt && attempt.count >= MAX_LOGIN_ATTEMPTS && attempt.lockedUntil > Date.now());
+}
+
+function registerLoginFailure(identifier: string) {
+  const current = loginAttempts.get(identifier);
+  const activeWindow = current?.lockedUntil && current.lockedUntil > Date.now();
+  const nextCount = (activeWindow ? current.count : 0) + 1;
+  loginAttempts.set(identifier, {
+    count: nextCount,
+    lockedUntil: activeWindow ? current.lockedUntil : Date.now() + LOGIN_WINDOW_MS,
+  });
+}
+
+function clearLoginFailures(identifier: string) {
+  loginAttempts.delete(identifier);
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -57,13 +80,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        const email = credentials.email.toLowerCase().trim();
+        if (isLoginLocked(email)) {
+          return null;
+        }
+
         const adminEmail = process.env.ADMIN_EMAIL;
         const adminPassword = process.env.ADMIN_PASSWORD_HASH;
 
         if (
-          credentials.email === adminEmail &&
+          email === adminEmail?.toLowerCase() &&
           verifyPassword(credentials.password, adminPassword)
         ) {
+          clearLoginFailures(email);
           return {
             id: '1',
             name: 'Administrador Ceci',
@@ -72,6 +101,7 @@ export const authOptions: NextAuthOptions = {
           };
         }
 
+        registerLoginFailure(email);
         return null;
       },
     }),

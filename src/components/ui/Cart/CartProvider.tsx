@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { MessageCircle, ShoppingBag, Trash2, X } from 'lucide-react';
-import { createPreOrder } from '@/app/pre-pedido/actions';
+import { createPreOrder, previewPreOrderCoupon } from '@/app/pre-pedido/actions';
 import { Button } from '@/components/ui/Button/Button';
 import { getOrderProtocol } from '@/lib/orders/protocol';
 
@@ -74,6 +74,9 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   });
   const [submitting, setSubmitting] = useState(false);
   const [zipLookup, setZipLookup] = useState<{ zipCode: string; loading: boolean; error: string | null }>({ zipCode: '', loading: false, error: null });
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [completedOrder, setCompletedOrder] = useState<{
     orderId: string;
@@ -128,6 +131,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
   }, [customer.zipCode]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
+  const discountedTotal = Math.max(0, total - couponDiscount);
   const hideCart = pathname?.startsWith('/admin');
   const deliveryAddress = [
     customer.zipCode ? `CEP ${customer.zipCode}` : '',
@@ -141,6 +145,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     items,
     addItem(item) {
       setCompletedOrder(null);
+      setCouponDiscount(0);
       setItems((prev) => {
         const existing = prev.find((cartItem) => cartItem.id === item.id);
         if (existing) {
@@ -152,9 +157,11 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
       setOpen(true);
     },
     removeItem(id) {
+      setCouponDiscount(0);
       setItems((prev) => prev.filter((item) => item.id !== id));
     },
     updateQuantity(id, quantity) {
+      setCouponDiscount(0);
       setItems((prev) => prev.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item));
     },
     openCart() {
@@ -168,7 +175,9 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     '',
     ...items.map((item) => `- ${item.quantity}x ${item.name} (${formatPrice(item.price * item.quantity)})`),
     '',
-    `Total estimado: ${formatPrice(total)}`,
+    couponDiscount > 0 ? `Subtotal: ${formatPrice(total)}` : '',
+    couponDiscount > 0 ? `Cupom: ${couponCode.trim().toUpperCase()} (-${formatPrice(couponDiscount)})` : '',
+    `Total estimado: ${formatPrice(discountedTotal)}`,
     '',
     `Nome: ${customer.name}`,
     `Telefone: ${customer.phone}`,
@@ -180,6 +189,28 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     const zipCode = value.replace(/\D/g, '').slice(0, 8);
     setCustomer((current) => ({ ...current, zipCode }));
     setZipLookup({ zipCode, loading: zipCode.length === 8, error: null });
+  };
+
+  const handleApplyCoupon = async () => {
+    setMessage(null);
+    setCouponLoading(true);
+    const result = await previewPreOrderCoupon(couponCode, items.map((item) => ({
+      product_id: item.id,
+      product_name: item.name,
+      product_price: item.price,
+      quantity: item.quantity,
+    })));
+    setCouponLoading(false);
+
+    if (!result.success) {
+      setCouponDiscount(0);
+      setMessage({ type: 'error', text: result.error || 'Nao foi possivel aplicar o cupom.' });
+      return;
+    }
+
+    setCouponCode(result.code || couponCode.trim().toUpperCase());
+    setCouponDiscount(result.discountAmount || 0);
+    setMessage({ type: 'success', text: result.discountAmount ? `Cupom aplicado: -${formatPrice(result.discountAmount)}.` : 'Cupom valido, sem desconto para estes itens.' });
   };
 
   const handlePreOrder = async () => {
@@ -200,8 +231,16 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
       customer_name: customer.name.trim(),
       customer_phone: customer.phone.trim(),
       customer_address: deliveryAddress,
+      customer_zip_code: customer.zipCode.trim(),
+      customer_street: customer.street.trim(),
+      customer_number: customer.number.trim(),
+      customer_complement: customer.complement.trim(),
+      customer_neighborhood: customer.neighborhood.trim(),
+      customer_city: customer.city.trim(),
+      customer_state: customer.state.trim(),
       notes: customer.notes.trim(),
       total_price: total,
+      coupon_code: couponCode.trim(),
       items: items.map((item) => ({
         product_id: item.id,
         product_name: item.name,
@@ -221,7 +260,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     setCompletedOrder({
       orderId: result.orderId,
       protocol,
-      total,
+      total: result.totalPrice ?? discountedTotal,
       customerName: customer.name.trim(),
       customerPhone: customer.phone.trim(),
       itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
@@ -232,6 +271,8 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
     setItems([]);
     setCustomer({ name: '', phone: '', zipCode: '', street: '', number: '', complement: '', neighborhood: '', city: '', state: '', notes: '' });
     setZipLookup({ zipCode: '', loading: false, error: null });
+    setCouponCode('');
+    setCouponDiscount(0);
   };
 
   const handleCloseCart = () => {
@@ -333,7 +374,10 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
               </div>
             )}
 
-            {!completedOrder && <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>Total: {formatPrice(total)}</div>}
+            {!completedOrder && <div style={{ marginTop: 18, fontSize: 20, fontWeight: 800 }}>
+              {couponDiscount > 0 && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>Subtotal: {formatPrice(total)} | Desconto: -{formatPrice(couponDiscount)}</div>}
+              Total: {formatPrice(discountedTotal)}
+            </div>}
 
             {!completedOrder && <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {message && (
@@ -370,6 +414,12 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
                 <input placeholder="Cidade" value={customer.city} onChange={(e) => setCustomer({ ...customer, city: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
               </div>
               <textarea placeholder="Observacoes" rows={3} value={customer.notes} onChange={(e) => setCustomer({ ...customer, notes: e.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8 }}>
+                <input placeholder="Cupom" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                <Button type="button" variant="outline" onClick={handleApplyCoupon} isLoading={couponLoading} disabled={!couponCode.trim() || items.length === 0}>
+                  Aplicar
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="primary"
@@ -377,7 +427,7 @@ export function CartProvider({ children, phoneNumber }: { children: React.ReactN
                 leftIcon={<MessageCircle size={18} />}
                 onClick={handlePreOrder}
                 isLoading={submitting}
-                disabled={items.length === 0}
+                disabled={items.length === 0 || submitting}
               >
                 Registrar pedido e enviar WhatsApp
               </Button>

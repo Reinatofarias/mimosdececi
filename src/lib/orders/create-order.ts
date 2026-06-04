@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMissingColumnError } from '@/lib/supabase/errors';
+import { getOrderProtocol } from './protocol';
 
 export type OrderInput = {
   customer_name: string;
@@ -7,9 +8,18 @@ export type OrderInput = {
   notes?: string;
   total_price: number;
   total_cost?: number;
+  coupon_code?: string | null;
+  discount_amount?: number;
   payment_method?: string;
   payment_status?: string;
   customer_address?: string;
+  customer_zip_code?: string;
+  customer_street?: string;
+  customer_number?: string;
+  customer_complement?: string;
+  customer_neighborhood?: string;
+  customer_city?: string;
+  customer_state?: string;
   delivery_date?: string | null;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   reminder_notes?: string;
@@ -24,6 +34,8 @@ function splitOrderData(data: OrderInput) {
     notes: data.notes || '',
     total_price: data.total_price,
     total_cost: data.total_cost ?? 0,
+    coupon_code: data.coupon_code || null,
+    discount_amount: data.discount_amount || 0,
     payment_method: data.payment_method || 'pix',
     payment_status: data.payment_status || 'pending',
     status: 'new',
@@ -33,7 +45,15 @@ function splitOrderData(data: OrderInput) {
     baseData,
     fullData: {
       ...baseData,
+      source: data.source || 'admin',
       customer_address: data.customer_address || '',
+      customer_zip_code: data.customer_zip_code || '',
+      customer_street: data.customer_street || '',
+      customer_number: data.customer_number || '',
+      customer_complement: data.customer_complement || '',
+      customer_neighborhood: data.customer_neighborhood || '',
+      customer_city: data.customer_city || '',
+      customer_state: data.customer_state || '',
       delivery_date: data.delivery_date || null,
       priority: data.priority || 'normal',
       reminder_notes: data.reminder_notes || '',
@@ -99,7 +119,7 @@ async function resolveOrderFinancials(supabase: ReturnType<typeof createAdminCli
   return {
     data: {
       ...data,
-      total_price: data.source === 'storefront' ? itemTotalPrice : data.total_price,
+      total_price: data.source === 'storefront' ? Math.max(0, itemTotalPrice - (data.discount_amount || 0)) : data.total_price,
       total_cost: itemTotalCost,
     },
     items,
@@ -118,6 +138,16 @@ export async function createOrderRecord(data: OrderInput) {
 
   if (orderResult.error || !orderResult.data) {
     return { data: null, error: orderResult.error };
+  }
+
+  const protocol = getOrderProtocol(orderResult.data.id);
+  const { error: protocolError } = await supabase
+    .from('orders')
+    .update({ order_code: protocol })
+    .eq('id', orderResult.data.id);
+
+  if (protocolError && !isMissingColumnError(protocolError)) {
+    console.error('Erro ao salvar protocolo do pedido:', protocolError);
   }
 
   if (resolvedOrder.items.length > 0) {
@@ -150,5 +180,5 @@ export async function createOrderRecord(data: OrderInput) {
     }
   }
 
-  return { data: { id: orderResult.data.id }, error: null };
+  return { data: { id: orderResult.data.id, protocol }, error: null };
 }

@@ -42,6 +42,10 @@ CREATE TABLE products (
   images TEXT[] DEFAULT '{}',
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   tags TEXT[] DEFAULT '{}',
+  stock_quantity INTEGER DEFAULT 0,
+  availability TEXT DEFAULT 'available',
+  product_status TEXT DEFAULT 'published',
+  variations JSONB DEFAULT '[]',
   featured BOOLEAN DEFAULT false,
   active BOOLEAN DEFAULT true,
   sort_order INTEGER DEFAULT 0,
@@ -56,6 +60,23 @@ CREATE TABLE product_occasions (
   PRIMARY KEY (product_id, occasion_id)
 );
 
+CREATE TABLE product_images (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  public_url TEXT NOT NULL,
+  alt_text TEXT DEFAULT '',
+  width INTEGER,
+  height INTEGER,
+  size_bytes INTEGER,
+  mime_type TEXT,
+  sort_order INTEGER DEFAULT 0,
+  is_cover BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- 4. PEDIDOS
 CREATE TYPE order_status AS ENUM (
   'new', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled'
@@ -63,6 +84,8 @@ CREATE TYPE order_status AS ENUM (
 
 CREATE TABLE orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  order_code TEXT,
+  source TEXT DEFAULT 'admin',
   customer_name TEXT NOT NULL,
   customer_phone TEXT NOT NULL,
   status order_status DEFAULT 'new',
@@ -73,6 +96,20 @@ CREATE TABLE orders (
   payment_status TEXT DEFAULT 'pending',
   coupon_code TEXT,
   discount_amount INTEGER DEFAULT 0,
+  customer_address TEXT DEFAULT '',
+  customer_zip_code TEXT DEFAULT '',
+  customer_street TEXT DEFAULT '',
+  customer_number TEXT DEFAULT '',
+  customer_complement TEXT DEFAULT '',
+  customer_neighborhood TEXT DEFAULT '',
+  customer_city TEXT DEFAULT '',
+  customer_state TEXT DEFAULT '',
+  delivery_date TIMESTAMPTZ,
+  priority TEXT DEFAULT 'normal',
+  reminder_notes TEXT DEFAULT '',
+  attachments JSONB DEFAULT '[]',
+  status_history JSONB DEFAULT '[]',
+  stock_decremented_at TIMESTAMPTZ,
   cancelled_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -133,6 +170,8 @@ CREATE TABLE coupons (
   usage_type TEXT CHECK (usage_type IN ('single', 'multiple')) DEFAULT 'multiple',
   max_uses INTEGER NOT NULL DEFAULT 100,
   current_uses INTEGER DEFAULT 0,
+  applies_to JSONB DEFAULT '{"product_ids":[],"category_ids":[]}',
+  notes TEXT DEFAULT '',
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -170,6 +209,16 @@ CREATE TABLE settings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  actor_email TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 INSERT INTO settings (key, value) VALUES
   ('whatsapp_number', '"5581992265790"'),
   ('store_name', '"Mimos de Ceci"'),
@@ -185,8 +234,15 @@ CREATE INDEX idx_products_featured ON products(featured);
 CREATE INDEX idx_products_slug ON products(slug);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created ON orders(created_at DESC);
+CREATE INDEX idx_orders_order_code ON orders(order_code);
+CREATE INDEX idx_orders_source ON orders(source);
+CREATE INDEX idx_orders_delivery_date ON orders(delivery_date);
+CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX idx_promotions_active_dates ON promotions(active, start_date, end_date);
 CREATE INDEX idx_coupons_code ON coupons(code);
+CREATE INDEX idx_product_images_product_order ON product_images(product_id, sort_order);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 
 -- ═══════════════════════════════════════════
 -- TRIGGERS DE UPDATED_AT
@@ -208,6 +264,7 @@ CREATE TRIGGER tr_coupons_updated BEFORE UPDATE ON coupons FOR EACH ROW EXECUTE 
 -- Por padrão, dados inativos não são lidos por usuários públicos (anon)
 
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE occasions ENABLE ROW LEVEL SECURITY;
@@ -223,8 +280,10 @@ ALTER TABLE coupon_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_occasions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public Products viewable" ON products FOR SELECT USING (active = true);
+CREATE POLICY "Public Product Images viewable" ON product_images FOR SELECT USING (true);
 CREATE POLICY "Public Categories viewable" ON categories FOR SELECT USING (active = true);
 CREATE POLICY "Public Promotions viewable" ON promotions FOR SELECT USING (active = true AND now() BETWEEN start_date AND end_date);
 CREATE POLICY "Public Occasions viewable" ON occasions FOR SELECT USING (active = true);

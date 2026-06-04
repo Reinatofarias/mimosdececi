@@ -22,6 +22,8 @@ export function slugifyProductName(value: string) {
     .replace(/(^-|-$)+/g, '');
 }
 
-export function isProductPublic(product: Pick<Product, 'active' | 'product_status' | 'availability'>) {
-  return product.active && product.product_status !== 'draft' && product.product_status !== 'archived' && product.availability !== 'hidden';
+export function isProductPublic(product: Pick<Product, 'active' | 'product_status' | 'availability' | 'stock_quantity'>) {
+  if (!product.active || product.product_status !== 'published') return false;
+  if (product.availability === 'hidden' || product.availability === 'sold_out') return false;
+  return true;
 }

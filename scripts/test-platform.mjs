@@ -43,6 +43,31 @@ const checks = [
     path: 'supabase/migrations/20260603120000_order_item_cost_snapshots.sql',
     includes: ['ADD COLUMN IF NOT EXISTS product_cost', 'UPDATE orders', 'SUM(COALESCE(product_cost, 0) * quantity)'],
   },
+  {
+    name: 'professional order operations migration exists',
+    path: 'supabase/migrations/20260604120000_professional_order_operations.sql',
+    includes: ['order_code', 'customer_zip_code', 'stock_decremented_at', 'idx_orders_payment_status'],
+  },
+  {
+    name: 'cart applies coupons and structured address',
+    path: 'src/components/ui/Cart/CartProvider.tsx',
+    includes: ['previewPreOrderCoupon', 'couponDiscount', 'customer_zip_code', 'Aplicar'],
+  },
+  {
+    name: 'CRM exposes order detail and whatsapp summary',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['selectedOrder', 'buildOrderWhatsappUrl', 'Itens do pedido', 'Historico de status'],
+  },
+  {
+    name: 'admin can export order CSV',
+    path: 'src/app/admin/relatorios/pedidos.csv/route.ts',
+    includes: ['isAdminSession', 'text/csv', 'pedidos-mimos-de-ceci.csv'],
+  },
+  {
+    name: 'auth rate limits credential failures',
+    path: 'src/lib/auth.ts',
+    includes: ['MAX_LOGIN_ATTEMPTS', 'registerLoginFailure', 'isLoginLocked'],
+  },
 ];
 
 for (const check of checks) {

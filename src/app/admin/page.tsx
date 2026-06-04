@@ -2,7 +2,7 @@ import React from 'react';
 import { getAdminProducts } from '@/lib/dal/products';
 import { getOrders, getAllOrderItems } from '@/lib/dal/orders';
 import { isProductPublic } from '@/lib/product-rules';
-import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy } from 'lucide-react';
+import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy, Download } from 'lucide-react';
 
 export const revalidate = 0;
 
@@ -32,6 +32,9 @@ export default async function AdminDashboard() {
   const faturamentoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(faturamentoCentavos / 100);
   const custoStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(custoCentavos / 100);
   const lucroStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lucroCentavos / 100);
+  const ticketMedioStr = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((currentMonthOrders.length > 0 ? faturamentoCentavos / currentMonthOrders.length : 0) / 100);
+  const margemStr = `${faturamentoCentavos > 0 ? Math.round((lucroCentavos / faturamentoCentavos) * 100) : 0}%`;
+  const pendingPayment = orders.filter((order) => order.status !== 'cancelled' && order.payment_status !== 'paid');
 
   const orderItems = await getAllOrderItems();
   const productStats: Record<string, { name: string; quantity: number; revenue: number }> = {};
@@ -50,13 +53,19 @@ export default async function AdminDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 'var(--space-xl)' }}>
+      <div style={{ marginBottom: 'var(--space-xl)', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+        <div>
         <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--color-text)', margin: 0 }}>
           Painel Executivo
         </h1>
         <p style={{ color: 'var(--color-text-secondary)', marginTop: '6px', fontSize: '14px' }}>
           Bem-vinda de volta ao painel de gestão, Ceci! Acompanhe suas vendas e catálogo.
         </p>
+        </div>
+        <a href="/admin/relatorios/pedidos.csv" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', color: 'var(--color-text)', textDecoration: 'none', fontWeight: 700, background: 'var(--color-surface)' }}>
+          <Download size={16} />
+          Exportar pedidos
+        </a>
       </div>
 
       {/* Metrics Grid */}
@@ -135,6 +144,19 @@ export default async function AdminDashboard() {
             {lucroStr}
           </p>
         </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-lg)', marginBottom: 'var(--space-md)' }}>
+        {[
+          ['Ticket medio', ticketMedioStr],
+          ['Margem do mes', margemStr],
+          ['Pagamentos pendentes', String(pendingPayment.length)],
+        ].map(([label, value]) => (
+          <div key={label} style={{ backgroundColor: 'var(--color-surface)', padding: 'var(--space-lg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>{label}</span>
+            <p style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--color-text)', margin: '6px 0 0' }}>{value}</p>
+          </div>
+        ))}
       </div>
 
       <div style={{

@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache';
 
 const ORDER_STATUSES = new Set(['new', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled']);
 const PAYMENT_STATUSES = new Set(['pending', 'paid']);
+const STOCK_DECREMENT_STATUSES = new Set(['confirmed', 'in_production', 'ready', 'delivered']);
 
 export async function createOrder(data: OrderInput): Promise<ActionResult> {
   const authError = await requireAdminAction();
@@ -43,12 +44,51 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   }
 
   const supabase = createAdminClient();
-  const { data: order } = await supabase.from('orders').select('status_history').eq('id', id).single();
+  let orderResult = await supabase
+    .from('orders')
+    .select('status, status_history, stock_decremented_at, order_items(product_id, quantity)')
+    .eq('id', id)
+    .single();
+  let canUseStockColumns = true;
+
+  if (orderResult.error && isMissingColumnError(orderResult.error)) {
+    canUseStockColumns = false;
+    orderResult = await supabase
+      .from('orders')
+      .select('status_history')
+      .eq('id', id)
+      .single();
+  }
+
+  const order = orderResult.data as {
+    status_history?: { status: string; at: string; note?: string }[] | null;
+    stock_decremented_at?: string | null;
+    order_items?: { product_id: string | null; quantity: number }[];
+  } | null;
+
+  if (canUseStockColumns && order && STOCK_DECREMENT_STATUSES.has(status) && !order.stock_decremented_at) {
+    const items = (order.order_items || []) as { product_id: string | null; quantity: number }[];
+    for (const item of items) {
+      if (!item.product_id) continue;
+      const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+      const currentStock = Number(product?.stock_quantity || 0);
+      await supabase
+        .from('products')
+        .update({ stock_quantity: Math.max(0, currentStock - Number(item.quantity || 0)) })
+        .eq('id', item.product_id);
+    }
+  }
+
   const nextHistory = [
     ...(((order?.status_history as { status: string; at: string; note?: string }[] | null) || [])),
     { status, at: new Date().toISOString() },
   ];
-  let updateResult = await supabase.from('orders').update({ status, status_history: nextHistory }).eq('id', id);
+  const updatePayload = {
+    status,
+    status_history: nextHistory,
+    stock_decremented_at: canUseStockColumns && order && STOCK_DECREMENT_STATUSES.has(status) && !order.stock_decremented_at ? new Date().toISOString() : order?.stock_decremented_at,
+  };
+  let updateResult = await supabase.from('orders').update(updatePayload).eq('id', id);
 
   if (updateResult.error && isMissingColumnError(updateResult.error)) {
     updateResult = await supabase.from('orders').update({ status }).eq('id', id);
@@ -62,6 +102,7 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   await recordAuditLog({ action: 'status_update', entityType: 'order', entityId: id, metadata: { status } });
   revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
+  revalidatePath('/admin/produtos');
   return { success: true };
 }
 
