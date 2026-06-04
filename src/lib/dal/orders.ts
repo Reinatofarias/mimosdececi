@@ -12,6 +12,9 @@ export type Order = {
   total_cost: number;
   payment_method: string;
   payment_status: string;
+  amount_paid?: number;
+  paid_at?: string | null;
+  payment_notes?: string;
   coupon_code: string | null;
   discount_amount: number;
   cancelled_reason: string | null;

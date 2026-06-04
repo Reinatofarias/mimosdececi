@@ -74,6 +74,21 @@ const checks = [
     includes: ['updateOrderItems', 'totalCost', 'discountAmount', 'order.items_update'],
   },
   {
+    name: 'order payment confirmation migration exists',
+    path: 'supabase/migrations/20260604130000_order_payment_confirmation.sql',
+    includes: ['amount_paid', 'paid_at', 'payment_notes'],
+  },
+  {
+    name: 'CRM confirms orders and edits payment',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['paymentDraft', 'handleSavePayment', 'handleConfirmSelectedOrder', 'Confirmar pedido'],
+  },
+  {
+    name: 'order actions validate confirmation',
+    path: 'src/app/admin/pedidos/actions.ts',
+    includes: ['confirmOrder', 'updatePaymentInfo', 'pagamento parcial ou pago', 'order.confirm'],
+  },
+  {
     name: 'product form uses structured variations',
     path: 'src/app/admin/produtos/ProductForm.tsx',
     includes: ['variationEntries', 'Nome da variação', 'Acréscimo R$'],

@@ -9,7 +9,7 @@ import { orderSchema } from '@/lib/validations/zod';
 import { revalidatePath } from 'next/cache';
 
 const ORDER_STATUSES = new Set(['new', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled']);
-const PAYMENT_STATUSES = new Set(['pending', 'paid']);
+const PAYMENT_STATUSES = new Set(['pending', 'partial', 'paid', 'refunded', 'cancelled']);
 const STOCK_DECREMENT_STATUSES = new Set(['confirmed', 'in_production', 'ready', 'delivered']);
 
 type OrderDetailsInput = {
@@ -34,6 +34,13 @@ type OrderItemInput = {
   product_price: number;
   product_cost?: number;
   quantity: number;
+};
+
+type PaymentInfoInput = {
+  payment_status: string;
+  payment_method: string;
+  amount_paid: number;
+  payment_notes?: string;
 };
 
 function buildAddress(data: OrderDetailsInput) {
@@ -163,6 +170,96 @@ export async function updatePaymentStatus(id: string, payment_status: string): P
 
   await recordAuditLog({ action: 'payment_update', entityType: 'order', entityId: id, metadata: { payment_status } });
   revalidatePath('/admin/pedidos');
+  return { success: true };
+}
+
+export async function updatePaymentInfo(id: string, data: PaymentInfoInput): Promise<ActionResult & {
+  payment?: {
+    payment_status: string;
+    payment_method: string;
+    amount_paid: number;
+    paid_at: string | null;
+    payment_notes: string;
+  };
+}> {
+  const authError = await requireAdminAction();
+  if (authError) return authError;
+
+  if (!PAYMENT_STATUSES.has(data.payment_status)) {
+    return { success: false, error: 'Status de pagamento invalido.' };
+  }
+
+  const amountPaid = Math.max(0, Number(data.amount_paid || 0));
+  const paidAt = data.payment_status === 'paid' ? new Date().toISOString() : null;
+  const payload = {
+    payment_status: data.payment_status,
+    payment_method: data.payment_method || 'pix',
+    amount_paid: amountPaid,
+    paid_at: paidAt,
+    payment_notes: data.payment_notes?.trim() || '',
+  };
+  const supabase = createAdminClient();
+  let updateResult = await supabase.from('orders').update(payload).eq('id', id);
+
+  if (updateResult.error && isMissingColumnError(updateResult.error)) {
+    updateResult = await supabase.from('orders').update({
+      payment_status: payload.payment_status,
+      payment_method: payload.payment_method,
+    }).eq('id', id);
+  }
+
+  if (updateResult.error) {
+    console.error('Erro ao atualizar informacoes de pagamento:', updateResult.error);
+    return { success: false, error: updateResult.error.message };
+  }
+
+  await recordAuditLog({
+    action: 'order.payment_info_update',
+    entityType: 'order',
+    entityId: id,
+    metadata: { payment_status: payload.payment_status, amount_paid: amountPaid, payment_method: payload.payment_method },
+  });
+  revalidatePath('/admin');
+  revalidatePath('/admin/pedidos');
+  return { success: true, payment: payload };
+}
+
+export async function confirmOrder(id: string): Promise<ActionResult> {
+  const authError = await requireAdminAction();
+  if (authError) return authError;
+
+  const supabase = createAdminClient();
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select('customer_name, customer_phone, customer_address, delivery_date, total_price, payment_status, amount_paid, order_items(id)')
+    .eq('id', id)
+    .single();
+
+  if (error || !order) {
+    return { success: false, error: error?.message || 'Pedido nao encontrado.' };
+  }
+
+  const missing: string[] = [];
+  if (!String(order.customer_name || '').trim()) missing.push('cliente');
+  if (!String(order.customer_phone || '').trim()) missing.push('WhatsApp');
+  if (!String(order.customer_address || '').trim()) missing.push('endereco');
+  if (!order.delivery_date) missing.push('data de entrega');
+  if (!order.order_items || order.order_items.length === 0) missing.push('itens');
+  if (Number(order.total_price || 0) <= 0) missing.push('valor total');
+  if (!['partial', 'paid'].includes(String(order.payment_status))) missing.push('pagamento parcial ou pago');
+  if (Number(order.amount_paid || 0) <= 0) missing.push('valor pago');
+
+  if (missing.length > 0) {
+    return { success: false, error: `Antes de confirmar, preencha: ${missing.join(', ')}.` };
+  }
+
+  const statusResult = await updateOrderStatus(id, 'confirmed');
+  if (!statusResult.success) return statusResult;
+
+  await recordAuditLog({ action: 'order.confirm', entityType: 'order', entityId: id });
+  revalidatePath('/admin');
+  revalidatePath('/admin/pedidos');
+  revalidatePath('/admin/produtos');
   return { success: true };
 }
 

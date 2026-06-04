@@ -3,8 +3,8 @@
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import type { Product } from '@/lib/types/database';
-import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails, updateOrderItems } from './actions';
-import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, PackagePlus, Search, Eye, X, Save } from 'lucide-react';
+import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails, updateOrderItems, updatePaymentInfo, confirmOrder } from './actions';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, PackagePlus, Search, Eye, X, Save, CheckCircle } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { isMissingColumnError } from '@/lib/supabase/errors';
 import { getOrderProtocol } from '@/lib/orders/protocol';
@@ -38,6 +38,12 @@ type EditableOrderItem = {
   product_cost: number;
   quantity: number;
 };
+type EditablePayment = {
+  payment_status: string;
+  payment_method: string;
+  amount_paid: string;
+  payment_notes: string;
+};
 
 const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string }[] = [
   { id: 'new', title: 'Novos', color: '#EF7A88', bgLight: '#FFF0F2' },
@@ -52,12 +58,16 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
   const [errorAlert, setErrorAlert] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailDraft, setDetailDraft] = useState<EditableOrderDetails | null>(null);
   const [itemDraft, setItemDraft] = useState<EditableOrderItem[]>([]);
+  const [paymentDraft, setPaymentDraft] = useState<EditablePayment | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const toDateTimeLocal = (value?: string | null) => {
@@ -92,6 +102,12 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       product_cost: item.product_cost || 0,
       quantity: item.quantity,
     })));
+    setPaymentDraft({
+      payment_status: order.payment_status || 'pending',
+      payment_method: order.payment_method || 'pix',
+      amount_paid: String(((order.amount_paid || 0) / 100).toFixed(2)),
+      payment_notes: order.payment_notes || '',
+    });
     setSelectedProductId('');
   };
 
@@ -168,6 +184,16 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     }
   };
 
+  const getPaymentStatusLabel = (status: string) => {
+    switch (status) {
+      case 'paid': return 'Pago';
+      case 'partial': return 'Parcial';
+      case 'refunded': return 'Estornado';
+      case 'cancelled': return 'Cancelado';
+      default: return 'Pendente';
+    }
+  };
+
   const getOrderCode = (order: Order) => order.order_code || getOrderProtocol(order.id);
 
   const buildOrderWhatsappUrl = (order: Order) => {
@@ -178,7 +204,23 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       ...items.map((item) => `- ${item.quantity}x ${item.product_name} (${formatPrice(item.product_price * item.quantity)})`),
       order.discount_amount ? `Desconto: -${formatPrice(order.discount_amount)}` : '',
       `Total: ${formatPrice(order.total_price)}`,
+      order.amount_paid ? `Valor pago: ${formatPrice(order.amount_paid)}` : '',
+      Math.max(0, (order.total_price || 0) - (order.amount_paid || 0)) > 0 ? `Saldo pendente: ${formatPrice(Math.max(0, (order.total_price || 0) - (order.amount_paid || 0)))}` : '',
       order.delivery_date ? `Entrega combinada: ${new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '',
+      order.customer_address ? `Endereco: ${order.customer_address}` : '',
+    ].filter(Boolean).join('\n');
+    return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  };
+
+  const buildConfirmationWhatsappUrl = (order: Order) => {
+    const message = [
+      `Pedido ${getOrderCode(order)} confirmado na Mimos de Ceci.`,
+      '',
+      ...(order.order_items || []).map((item) => `- ${item.quantity}x ${item.product_name}`),
+      '',
+      `Total: ${formatPrice(order.total_price || 0)}`,
+      `Pagamento: ${getPaymentStatusLabel(order.payment_status)}${order.amount_paid ? ` (${formatPrice(order.amount_paid)})` : ''}`,
+      order.delivery_date ? `Entrega: ${new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '',
       order.customer_address ? `Endereco: ${order.customer_address}` : '',
     ].filter(Boolean).join('\n');
     return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
@@ -269,6 +311,54 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     setErrorAlert('Itens do pedido atualizados.');
   };
 
+  const handleSavePayment = async () => {
+    if (!selectedOrder || !paymentDraft) return;
+    setSavingPayment(true);
+    setErrorAlert(null);
+    const result = await updatePaymentInfo(selectedOrder.id, {
+      payment_status: paymentDraft.payment_status,
+      payment_method: paymentDraft.payment_method,
+      amount_paid: Math.round(Number(paymentDraft.amount_paid.replace(',', '.') || 0) * 100),
+      payment_notes: paymentDraft.payment_notes,
+    });
+    setSavingPayment(false);
+
+    if (!result.success || !result.payment) {
+      setErrorAlert(result.error || 'Nao foi possivel salvar o pagamento.');
+      return;
+    }
+
+    const updatedOrder: Order = {
+      ...selectedOrder,
+      payment_status: result.payment.payment_status,
+      payment_method: result.payment.payment_method,
+      amount_paid: result.payment.amount_paid,
+      paid_at: result.payment.paid_at,
+      payment_notes: result.payment.payment_notes,
+    };
+    setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+    setSelectedOrder(updatedOrder);
+    setErrorAlert('Pagamento atualizado.');
+  };
+
+  const handleConfirmSelectedOrder = async () => {
+    if (!selectedOrder) return;
+    setConfirming(true);
+    setErrorAlert(null);
+    const result = await confirmOrder(selectedOrder.id);
+    setConfirming(false);
+
+    if (!result.success) {
+      setErrorAlert(result.error || 'Nao foi possivel confirmar o pedido.');
+      return;
+    }
+
+    const updatedOrder: Order = { ...selectedOrder, status: 'confirmed', stock_decremented_at: selectedOrder.stock_decremented_at || new Date().toISOString() };
+    setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+    setSelectedOrder(updatedOrder);
+    setErrorAlert('Pedido confirmado e pronto para producao.');
+  };
+
   const filteredOrders = orders.filter((order) => {
     const searchable = [
       order.customer_name,
@@ -282,7 +372,8 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
 
     const matchesSearch = searchable.includes(searchTerm.trim().toLowerCase());
     const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
-    return matchesSearch && matchesPriority;
+    const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
+    return matchesSearch && matchesPriority && matchesPayment;
   });
 
   const getPriorityLabel = (priority?: string) => {
@@ -318,7 +409,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
         borderRadius: 'var(--radius-md)',
         padding: 'var(--space-md)',
         display: 'grid',
-        gridTemplateColumns: 'minmax(220px, 1fr) 180px',
+        gridTemplateColumns: 'minmax(220px, 1fr) 180px 180px',
         gap: 'var(--space-md)',
         alignItems: 'center'
       }}>
@@ -342,6 +433,18 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
           <option value="high">Alta</option>
           <option value="normal">Normal</option>
           <option value="low">Baixa</option>
+        </select>
+        <select
+          value={paymentFilter}
+          onChange={(event) => setPaymentFilter(event.target.value)}
+          style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
+        >
+          <option value="all">Todos pagamentos</option>
+          <option value="pending">Pendente</option>
+          <option value="partial">Parcial</option>
+          <option value="paid">Pago</option>
+          <option value="refunded">Estornado</option>
+          <option value="cancelled">Cancelado</option>
         </select>
       </div>
 
@@ -490,8 +593,8 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                           border: 'none',
                           cursor: 'pointer',
                           fontWeight: 700,
-                          backgroundColor: order.payment_status === 'paid' ? '#E8F5E9' : '#FFEBEE',
-                          color: order.payment_status === 'paid' ? '#2E7D32' : '#C62828',
+                          backgroundColor: order.payment_status === 'paid' ? '#E8F5E9' : order.payment_status === 'partial' ? '#FEF3C7' : '#FFEBEE',
+                          color: order.payment_status === 'paid' ? '#2E7D32' : order.payment_status === 'partial' ? '#92400E' : '#C62828',
                           transition: 'all 0.2s ease',
                           boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                           display: 'inline-flex',
@@ -500,7 +603,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                         }}
                       >
                         <span style={{ fontSize: '7px' }}>{order.payment_status === 'paid' ? '●' : '●'}</span>
-                        {order.payment_status === 'paid' ? 'Pago' : 'Pendente'}
+                        {getPaymentStatusLabel(order.payment_status)}
                       </button>
                     </div>
 
@@ -652,15 +755,17 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                 <h2 style={{ margin: '4px 0 0', fontSize: 22 }}>{selectedOrder.customer_name}</h2>
                 <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)' }}>{selectedOrder.source === 'storefront' ? 'Pedido recebido pelo site' : 'Pedido criado no admin'}</p>
               </div>
-              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); setItemDraft([]); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); setItemDraft([]); setPaymentDraft(null); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
             </header>
             <div style={{ padding: 20, display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
                 {[
                   ['Total', formatPrice(selectedOrder.total_price || 0)],
+                  ['Pago', formatPrice(selectedOrder.amount_paid || 0)],
+                  ['Saldo', formatPrice(Math.max(0, (selectedOrder.total_price || 0) - (selectedOrder.amount_paid || 0)))],
                   ['Custo', formatPrice(selectedOrder.total_cost || 0)],
                   ['Lucro', formatPrice((selectedOrder.total_price || 0) - (selectedOrder.total_cost || 0))],
-                  ['Pagamento', selectedOrder.payment_status === 'paid' ? 'Pago' : 'Pendente'],
+                  ['Pagamento', getPaymentStatusLabel(selectedOrder.payment_status)],
                 ].map(([label, value]) => (
                   <div key={label} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 12 }}>
                     <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{label}</div>
@@ -668,6 +773,43 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                   </div>
                 ))}
               </div>
+
+              {paymentDraft && (
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, display: 'grid', gap: 10 }}>
+                  <h3 style={{ fontSize: 15, margin: 0 }}>Pagamento e confirmacao</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                    <select value={paymentDraft.payment_status} onChange={(event) => setPaymentDraft({ ...paymentDraft, payment_status: event.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                      <option value="pending">Pendente</option>
+                      <option value="partial">Parcial</option>
+                      <option value="paid">Pago</option>
+                      <option value="refunded">Estornado</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                    <select value={paymentDraft.payment_method} onChange={(event) => setPaymentDraft({ ...paymentDraft, payment_method: event.target.value })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                      <option value="pix">PIX</option>
+                      <option value="credit_card">Credito</option>
+                      <option value="debit_card">Debito</option>
+                      <option value="cash">Dinheiro</option>
+                      <option value="pre_order">Pre-pedido</option>
+                    </select>
+                    <input value={paymentDraft.amount_paid} onChange={(event) => setPaymentDraft({ ...paymentDraft, amount_paid: event.target.value })} placeholder="Valor pago" type="number" step="0.01" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  </div>
+                  <textarea rows={2} value={paymentDraft.payment_notes} onChange={(event) => setPaymentDraft({ ...paymentDraft, payment_notes: event.target.value })} placeholder="Observacao financeira" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+                    <button type="button" onClick={handleSavePayment} disabled={savingPayment} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: 'var(--color-primary)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                      <Save size={16} />
+                      {savingPayment ? 'Salvando...' : 'Salvar pagamento'}
+                    </button>
+                    <button type="button" onClick={handleConfirmSelectedOrder} disabled={confirming || selectedOrder.status === 'confirmed'} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: '#111115', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                      <CheckCircle size={16} />
+                      {confirming ? 'Confirmando...' : 'Confirmar pedido'}
+                    </button>
+                  </div>
+                  <a href={buildConfirmationWhatsappUrl(selectedOrder)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-whatsapp)', fontWeight: 800, textDecoration: 'none' }}>
+                    Enviar mensagem de confirmacao no WhatsApp
+                  </a>
+                </div>
+              )}
 
               <div>
                 <h3 style={{ fontSize: 15, marginBottom: 8 }}>Itens do pedido</h3>

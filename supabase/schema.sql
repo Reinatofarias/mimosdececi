@@ -94,6 +94,9 @@ CREATE TABLE orders (
   total_cost INTEGER DEFAULT 0,
   payment_method TEXT DEFAULT 'pix',
   payment_status TEXT DEFAULT 'pending',
+  amount_paid INTEGER DEFAULT 0,
+  paid_at TIMESTAMPTZ,
+  payment_notes TEXT DEFAULT '',
   coupon_code TEXT,
   discount_amount INTEGER DEFAULT 0,
   customer_address TEXT DEFAULT '',
@@ -238,6 +241,7 @@ CREATE INDEX idx_orders_order_code ON orders(order_code);
 CREATE INDEX idx_orders_source ON orders(source);
 CREATE INDEX idx_orders_delivery_date ON orders(delivery_date);
 CREATE INDEX idx_orders_payment_status ON orders(payment_status);
+CREATE INDEX idx_orders_paid_at ON orders(paid_at);
 CREATE INDEX idx_promotions_active_dates ON promotions(active, start_date, end_date);
 CREATE INDEX idx_coupons_code ON coupons(code);
 CREATE INDEX idx_product_images_product_order ON product_images(product_id, sort_order);

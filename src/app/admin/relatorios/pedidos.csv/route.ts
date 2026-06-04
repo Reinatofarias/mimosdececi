@@ -11,7 +11,7 @@ export async function GET() {
 
   const orders = await getOrders();
   const rows = [
-    ['protocolo', 'origem', 'cliente', 'telefone', 'status', 'pagamento', 'total', 'custo', 'lucro', 'cupom', 'desconto', 'entrega', 'endereco', 'criado_em'],
+    ['protocolo', 'origem', 'cliente', 'telefone', 'status', 'pagamento', 'total', 'valor_pago', 'saldo', 'custo', 'lucro', 'cupom', 'desconto', 'entrega', 'endereco', 'criado_em'],
     ...orders.map((order) => [
       order.order_code || order.id,
       order.source || 'admin',
@@ -20,6 +20,8 @@ export async function GET() {
       order.status,
       order.payment_status,
       (order.total_price || 0) / 100,
+      (order.amount_paid || 0) / 100,
+      Math.max(0, (order.total_price || 0) - (order.amount_paid || 0)) / 100,
       (order.total_cost || 0) / 100,
       ((order.total_price || 0) - (order.total_cost || 0)) / 100,
       order.coupon_code || '',
