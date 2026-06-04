@@ -12,6 +12,32 @@ const ORDER_STATUSES = new Set(['new', 'confirmed', 'in_production', 'ready', 'd
 const PAYMENT_STATUSES = new Set(['pending', 'paid']);
 const STOCK_DECREMENT_STATUSES = new Set(['confirmed', 'in_production', 'ready', 'delivered']);
 
+type OrderDetailsInput = {
+  customer_name: string;
+  customer_phone: string;
+  customer_zip_code?: string;
+  customer_street?: string;
+  customer_number?: string;
+  customer_complement?: string;
+  customer_neighborhood?: string;
+  customer_city?: string;
+  customer_state?: string;
+  delivery_date?: string | null;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  notes?: string;
+  reminder_notes?: string;
+};
+
+function buildAddress(data: OrderDetailsInput) {
+  return [
+    data.customer_zip_code ? `CEP ${data.customer_zip_code}` : '',
+    [data.customer_street, data.customer_number].filter(Boolean).join(', '),
+    data.customer_complement,
+    data.customer_neighborhood,
+    [data.customer_city, data.customer_state].filter(Boolean).join(' - '),
+  ].filter(Boolean).join(' | ');
+}
+
 export async function createOrder(data: OrderInput): Promise<ActionResult> {
   const authError = await requireAdminAction();
   if (authError) return authError;
@@ -123,6 +149,58 @@ export async function updatePaymentStatus(id: string, payment_status: string): P
   }
 
   await recordAuditLog({ action: 'payment_update', entityType: 'order', entityId: id, metadata: { payment_status } });
+  revalidatePath('/admin/pedidos');
+  return { success: true };
+}
+
+export async function updateOrderDetails(id: string, data: OrderDetailsInput): Promise<ActionResult> {
+  const authError = await requireAdminAction();
+  if (authError) return authError;
+
+  if (!data.customer_name.trim() || !data.customer_phone.trim()) {
+    return { success: false, error: 'Nome e telefone do cliente sao obrigatorios.' };
+  }
+
+  const supabase = createAdminClient();
+  const payload = {
+    customer_name: data.customer_name.trim(),
+    customer_phone: data.customer_phone.trim(),
+    customer_zip_code: data.customer_zip_code?.trim() || '',
+    customer_street: data.customer_street?.trim() || '',
+    customer_number: data.customer_number?.trim() || '',
+    customer_complement: data.customer_complement?.trim() || '',
+    customer_neighborhood: data.customer_neighborhood?.trim() || '',
+    customer_city: data.customer_city?.trim() || '',
+    customer_state: data.customer_state?.trim().toUpperCase().slice(0, 2) || '',
+    customer_address: buildAddress(data),
+    delivery_date: data.delivery_date || null,
+    priority: data.priority || 'normal',
+    notes: data.notes?.trim() || '',
+    reminder_notes: data.reminder_notes?.trim() || '',
+  };
+
+  let updateResult = await supabase.from('orders').update(payload).eq('id', id);
+
+  if (updateResult.error && isMissingColumnError(updateResult.error)) {
+    updateResult = await supabase.from('orders').update({
+      customer_name: payload.customer_name,
+      customer_phone: payload.customer_phone,
+      notes: payload.notes,
+    }).eq('id', id);
+  }
+
+  if (updateResult.error) {
+    console.error('Erro ao atualizar detalhes do pedido:', updateResult.error);
+    return { success: false, error: updateResult.error.message };
+  }
+
+  await recordAuditLog({
+    action: 'order.details_update',
+    entityType: 'order',
+    entityId: id,
+    metadata: { customer: payload.customer_name, delivery_date: payload.delivery_date, priority: payload.priority },
+  });
+  revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
   return { success: true };
 }

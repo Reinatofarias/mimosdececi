@@ -2,8 +2,8 @@
 
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
-import { updateOrderStatus, updatePaymentStatus, deleteOrder } from './actions';
-import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search, Eye, X } from 'lucide-react';
+import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails } from './actions';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, Search, Eye, X, Save } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { isMissingColumnError } from '@/lib/supabase/errors';
 import { getOrderProtocol } from '@/lib/orders/protocol';
@@ -13,6 +13,21 @@ interface KanbanBoardProps {
 }
 
 type OrderStatus = Order['status'];
+type EditableOrderDetails = {
+  customer_name: string;
+  customer_phone: string;
+  customer_zip_code: string;
+  customer_street: string;
+  customer_number: string;
+  customer_complement: string;
+  customer_neighborhood: string;
+  customer_city: string;
+  customer_state: string;
+  delivery_date: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  notes: string;
+  reminder_notes: string;
+};
 
 const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string }[] = [
   { id: 'new', title: 'Novos', color: '#EF7A88', bgLight: '#FFF0F2' },
@@ -28,7 +43,35 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [detailDraft, setDetailDraft] = useState<EditableOrderDetails | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const toDateTimeLocal = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  const openOrderDetail = (order: Order) => {
+    setSelectedOrder(order);
+    setDetailDraft({
+      customer_name: order.customer_name || '',
+      customer_phone: order.customer_phone || '',
+      customer_zip_code: order.customer_zip_code || '',
+      customer_street: order.customer_street || '',
+      customer_number: order.customer_number || '',
+      customer_complement: order.customer_complement || '',
+      customer_neighborhood: order.customer_neighborhood || '',
+      customer_city: order.customer_city || '',
+      customer_state: order.customer_state || '',
+      delivery_date: toDateTimeLocal(order.delivery_date),
+      priority: (order.priority || 'normal') as EditableOrderDetails['priority'],
+      notes: order.notes || '',
+      reminder_notes: order.reminder_notes || '',
+    });
+  };
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
     const previousOrders = orders;
@@ -117,6 +160,40 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
       order.customer_address ? `Endereco: ${order.customer_address}` : '',
     ].filter(Boolean).join('\n');
     return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+  };
+
+  const handleSaveDetails = async () => {
+    if (!selectedOrder || !detailDraft) return;
+    setSavingDetails(true);
+    setErrorAlert(null);
+    const result = await updateOrderDetails(selectedOrder.id, {
+      ...detailDraft,
+      delivery_date: detailDraft.delivery_date ? new Date(detailDraft.delivery_date).toISOString() : null,
+    });
+    setSavingDetails(false);
+
+    if (!result.success) {
+      setErrorAlert(result.error || 'Nao foi possivel salvar os detalhes do pedido.');
+      return;
+    }
+
+    const updatedOrder: Order = {
+      ...selectedOrder,
+      ...detailDraft,
+      customer_state: detailDraft.customer_state.toUpperCase().slice(0, 2),
+      customer_address: [
+        detailDraft.customer_zip_code ? `CEP ${detailDraft.customer_zip_code}` : '',
+        [detailDraft.customer_street, detailDraft.customer_number].filter(Boolean).join(', '),
+        detailDraft.customer_complement,
+        detailDraft.customer_neighborhood,
+        [detailDraft.customer_city, detailDraft.customer_state].filter(Boolean).join(' - '),
+      ].filter(Boolean).join(' | '),
+      delivery_date: detailDraft.delivery_date ? new Date(detailDraft.delivery_date).toISOString() : null,
+      priority: detailDraft.priority,
+    };
+    setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+    setSelectedOrder(updatedOrder);
+    setErrorAlert('Detalhes do pedido atualizados.');
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -421,7 +498,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => openOrderDetail(order)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -502,7 +579,7 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                 <h2 style={{ margin: '4px 0 0', fontSize: 22 }}>{selectedOrder.customer_name}</h2>
                 <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)' }}>{selectedOrder.source === 'storefront' ? 'Pedido recebido pelo site' : 'Pedido criado no admin'}</p>
               </div>
-              <button type="button" onClick={() => setSelectedOrder(null)} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
             </header>
             <div style={{ padding: 20, display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
@@ -532,16 +609,39 @@ export function KanbanBoard({ orders: initialOrders }: KanbanBoardProps) {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                <div>
-                  <h3 style={{ fontSize: 15, marginBottom: 8 }}>Cliente e entrega</h3>
-                  <p style={{ margin: 0, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{selectedOrder.customer_phone}<br />{selectedOrder.customer_address || 'Endereco nao informado'}</p>
+              {detailDraft && (
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, display: 'grid', gap: 10 }}>
+                  <h3 style={{ fontSize: 15, margin: 0 }}>Editar operacao</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+                    <input value={detailDraft.customer_name} onChange={(event) => setDetailDraft({ ...detailDraft, customer_name: event.target.value })} placeholder="Cliente" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_phone} onChange={(event) => setDetailDraft({ ...detailDraft, customer_phone: event.target.value })} placeholder="WhatsApp" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.delivery_date} onChange={(event) => setDetailDraft({ ...detailDraft, delivery_date: event.target.value })} type="datetime-local" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <select value={detailDraft.priority} onChange={(event) => setDetailDraft({ ...detailDraft, priority: event.target.value as EditableOrderDetails['priority'] })} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                      <option value="normal">Prioridade normal</option>
+                      <option value="low">Baixa</option>
+                      <option value="high">Alta</option>
+                      <option value="urgent">Urgente</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px', gap: 10 }}>
+                    <input value={detailDraft.customer_zip_code} onChange={(event) => setDetailDraft({ ...detailDraft, customer_zip_code: event.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="CEP" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_street} onChange={(event) => setDetailDraft({ ...detailDraft, customer_street: event.target.value })} placeholder="Rua / Avenida" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_number} onChange={(event) => setDetailDraft({ ...detailDraft, customer_number: event.target.value })} placeholder="Numero" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                    <input value={detailDraft.customer_complement} onChange={(event) => setDetailDraft({ ...detailDraft, customer_complement: event.target.value })} placeholder="Complemento" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_neighborhood} onChange={(event) => setDetailDraft({ ...detailDraft, customer_neighborhood: event.target.value })} placeholder="Bairro" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_city} onChange={(event) => setDetailDraft({ ...detailDraft, customer_city: event.target.value })} placeholder="Cidade" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.customer_state} onChange={(event) => setDetailDraft({ ...detailDraft, customer_state: event.target.value.toUpperCase().slice(0, 2) })} placeholder="UF" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  </div>
+                  <textarea rows={3} value={detailDraft.notes} onChange={(event) => setDetailDraft({ ...detailDraft, notes: event.target.value })} placeholder="Observacoes do pedido" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  <textarea rows={3} value={detailDraft.reminder_notes} onChange={(event) => setDetailDraft({ ...detailDraft, reminder_notes: event.target.value })} placeholder="Lembretes internos" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  <button type="button" onClick={handleSaveDetails} disabled={savingDetails} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: 'var(--color-primary)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                    <Save size={16} />
+                    {savingDetails ? 'Salvando...' : 'Salvar detalhes do pedido'}
+                  </button>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: 15, marginBottom: 8 }}>Observacoes</h3>
-                  <p style={{ margin: 0, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{selectedOrder.notes || selectedOrder.reminder_notes || 'Sem observacoes.'}</p>
-                </div>
-              </div>
+              )}
 
               <div>
                 <h3 style={{ fontSize: 15, marginBottom: 8 }}>Historico de status</h3>

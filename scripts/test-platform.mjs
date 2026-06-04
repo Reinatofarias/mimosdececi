@@ -59,6 +59,16 @@ const checks = [
     includes: ['selectedOrder', 'buildOrderWhatsappUrl', 'Itens do pedido', 'Historico de status'],
   },
   {
+    name: 'CRM edits order operation details',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['detailDraft', 'handleSaveDetails', 'Salvar detalhes do pedido'],
+  },
+  {
+    name: 'product form uses structured variations',
+    path: 'src/app/admin/produtos/ProductForm.tsx',
+    includes: ['variationEntries', 'Nome da variação', 'Acréscimo R$'],
+  },
+  {
     name: 'admin can export order CSV',
     path: 'src/app/admin/relatorios/pedidos.csv/route.ts',
     includes: ['isAdminSession', 'text/csv', 'pedidos-mimos-de-ceci.csv'],

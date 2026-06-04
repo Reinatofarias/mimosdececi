@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Eye, GripVertical, UploadCloud, X } from 'lucide-react';
+import { ArrowLeft, Eye, GripVertical, Plus, UploadCloud, X } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { Button } from '@/components/ui/Button/Button';
 import type { Category, Product } from '@/lib/types/database';
@@ -25,23 +25,14 @@ type ImageEntry = {
   file?: File;
 };
 
+type VariationEntry = {
+  name: string;
+  price_delta: string;
+};
+
 function moneyToCents(value: string) {
   if (!value.trim()) return 0;
   return Math.round(parseFloat(value.replace(',', '.')) * 100);
-}
-
-function parseVariations(value: string) {
-  return value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name, priceDelta] = line.split('|').map((part) => part.trim());
-      return {
-        name,
-        price_delta: priceDelta ? moneyToCents(priceDelta) : 0,
-      };
-    });
 }
 
 function formatMoney(cents?: number | null) {
@@ -55,6 +46,10 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
   const [message, setMessage] = useState<FormMessage>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [imageEntries, setImageEntries] = useState<ImageEntry[]>(() => (product?.images || []).map((preview) => ({ preview })));
+  const [variationEntries, setVariationEntries] = useState<VariationEntry[]>(() => (product?.variations || []).map((variation) => ({
+    name: variation.name,
+    price_delta: formatMoney(variation.price_delta),
+  })));
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
@@ -67,7 +62,6 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
     product_status: product?.product_status || (product?.active === false ? 'draft' : 'published'),
     availability: product?.availability || 'available',
     stock_quantity: String(product?.stock_quantity || 0),
-    variations: product?.variations?.map((variation) => `${variation.name}${variation.price_delta ? ` | ${formatMoney(variation.price_delta)}` : ''}`).join('\n') || '',
   });
 
   const previewProduct = useMemo(() => ({
@@ -163,7 +157,12 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
         product_status: productStatus,
         availability: formData.availability as 'available' | 'made_to_order' | 'sold_out' | 'hidden',
         stock_quantity: Number(formData.stock_quantity || 0),
-        variations: parseVariations(formData.variations),
+        variations: variationEntries
+          .filter((variation) => variation.name.trim())
+          .map((variation) => ({
+            name: variation.name.trim(),
+            price_delta: moneyToCents(variation.price_delta),
+          })),
       };
 
       const result = mode === 'create'
@@ -295,10 +294,38 @@ export function ProductForm({ mode, categories, product }: ProductFormProps) {
             <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData({ ...formData, featured: e.target.checked })} />
             Destacar na Vitrine Inicial
           </label>
-          <label style={{ display: 'block', marginTop: 16 }}>
-            <span style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>Variações simples</span>
-            <textarea rows={3} value={formData.variations} onChange={(e) => setFormData({ ...formData, variations: e.target.value })} placeholder="Ex: Tamanho família | 20,00" style={{ width: '100%', padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }} />
-          </label>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600 }}>Variações simples</span>
+              <Button type="button" variant="outline" size="sm" leftIcon={<Plus size={14} />} onClick={() => setVariationEntries((prev) => [...prev, { name: '', price_delta: '' }])}>
+                Adicionar
+              </Button>
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {variationEntries.map((variation, index) => (
+                <div key={index} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 34px', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={variation.name}
+                    onChange={(event) => setVariationEntries((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))}
+                    placeholder="Nome da variação"
+                    style={{ width: '100%', padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={variation.price_delta}
+                    onChange={(event) => setVariationEntries((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, price_delta: event.target.value } : item))}
+                    placeholder="Acréscimo R$"
+                    style={{ width: '100%', padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                  />
+                  <button type="button" onClick={() => setVariationEntries((prev) => prev.filter((_, itemIndex) => itemIndex !== index))} style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-danger)', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
+                    <X size={15} />
+                  </button>
+                </div>
+              ))}
+              {variationEntries.length === 0 && <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 13 }}>Sem variações cadastradas.</p>}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-md)' }}>
