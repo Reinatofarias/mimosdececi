@@ -3,8 +3,8 @@
 import React, { useTransition, useState } from 'react';
 import { Order } from '@/lib/dal/orders';
 import type { Product } from '@/lib/types/database';
-import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails, updateOrderItems, updatePaymentInfo, confirmOrder } from './actions';
-import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, PackagePlus, Search, Eye, X, Save, CheckCircle } from 'lucide-react';
+import { updateOrderStatus, updatePaymentStatus, deleteOrder, updateOrderDetails, updateOrderItems, updatePaymentInfo, updateProductionInfo, confirmOrder } from './actions';
+import { Trash2, MessageCircle, CreditCard, Calendar, MapPin, PackagePlus, Search, Eye, X, Save, CheckCircle, ClipboardCheck } from 'lucide-react';
 import { AdminMessage } from '@/components/admin/AdminMessage';
 import { isMissingColumnError } from '@/lib/supabase/errors';
 import { getOrderProtocol } from '@/lib/orders/protocol';
@@ -47,6 +47,25 @@ type EditablePayment = {
   amount_paid: string;
   payment_notes: string;
 };
+type EditableProduction = {
+  production_assignee: string;
+  production_due_date: string;
+  production_notes: string;
+  production_checklist: ProductionChecklistItem[];
+};
+type ProductionChecklistItem = {
+  key: string;
+  label: string;
+  done: boolean;
+};
+
+const DEFAULT_PRODUCTION_CHECKLIST: ProductionChecklistItem[] = [
+  { key: 'inputs', label: 'Separar insumos', done: false },
+  { key: 'assembly', label: 'Montar pedido', done: false },
+  { key: 'personalization', label: 'Revisar personalizacao', done: false },
+  { key: 'packaging', label: 'Embalar', done: false },
+  { key: 'final_review', label: 'Conferencia final', done: false },
+];
 
 const COLUMNS: { id: OrderStatus; title: string; color: string; bgLight: string }[] = [
   { id: 'new', title: 'Novos', color: '#EF7A88', bgLight: '#FFF0F2' },
@@ -68,10 +87,12 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
   const [detailDraft, setDetailDraft] = useState<EditableOrderDetails | null>(null);
   const [itemDraft, setItemDraft] = useState<EditableOrderItem[]>([]);
   const [paymentDraft, setPaymentDraft] = useState<EditablePayment | null>(null);
+  const [productionDraft, setProductionDraft] = useState<EditableProduction | null>(null);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
+  const [savingProduction, setSavingProduction] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -80,6 +101,21 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  const normalizeProductionChecklist = (items?: ProductionChecklistItem[] | null) => {
+    const source = Array.isArray(items) && items.length > 0 ? items : DEFAULT_PRODUCTION_CHECKLIST;
+    return source.map((item, index) => ({
+      key: item.key || `step_${index + 1}`,
+      label: item.label || `Etapa ${index + 1}`,
+      done: Boolean(item.done),
+    }));
+  };
+
+  const getProductionProgress = (order: Order) => {
+    const checklist = normalizeProductionChecklist(order.production_checklist);
+    const done = checklist.filter((item) => item.done).length;
+    return { done, total: checklist.length, percent: checklist.length > 0 ? Math.round((done / checklist.length) * 100) : 0 };
   };
 
   const openOrderDetail = (order: Order) => {
@@ -115,6 +151,12 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       payment_method: order.payment_method || 'pix',
       amount_paid: String(((order.amount_paid || 0) / 100).toFixed(2)),
       payment_notes: order.payment_notes || '',
+    });
+    setProductionDraft({
+      production_assignee: order.production_assignee || '',
+      production_due_date: toDateTimeLocal(order.production_due_date),
+      production_notes: order.production_notes || '',
+      production_checklist: normalizeProductionChecklist(order.production_checklist),
     });
     setSelectedProductId('');
   };
@@ -366,6 +408,43 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     setErrorAlert('Pagamento atualizado.');
   };
 
+  const handleSaveProduction = async () => {
+    if (!selectedOrder || !productionDraft) return;
+    setSavingProduction(true);
+    setErrorAlert(null);
+    const result = await updateProductionInfo(selectedOrder.id, {
+      production_assignee: productionDraft.production_assignee,
+      production_due_date: productionDraft.production_due_date ? new Date(productionDraft.production_due_date).toISOString() : null,
+      production_notes: productionDraft.production_notes,
+      production_checklist: productionDraft.production_checklist,
+    });
+    setSavingProduction(false);
+
+    if (!result.success || !result.production) {
+      setErrorAlert(result.error || 'Nao foi possivel salvar a producao.');
+      return;
+    }
+
+    const updatedOrder: Order = {
+      ...selectedOrder,
+      production_assignee: result.production.production_assignee,
+      production_due_date: result.production.production_due_date,
+      production_notes: result.production.production_notes,
+      production_checklist: result.production.production_checklist,
+      production_started_at: result.production.production_started_at,
+      production_completed_at: result.production.production_completed_at,
+    };
+    setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
+    setSelectedOrder(updatedOrder);
+    setProductionDraft({
+      production_assignee: updatedOrder.production_assignee || '',
+      production_due_date: toDateTimeLocal(updatedOrder.production_due_date),
+      production_notes: updatedOrder.production_notes || '',
+      production_checklist: normalizeProductionChecklist(updatedOrder.production_checklist),
+    });
+    setErrorAlert('Producao atualizada.');
+  };
+
   const handleConfirmSelectedOrder = async () => {
     if (!selectedOrder) return;
     setConfirming(true);
@@ -434,6 +513,24 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     return true;
   };
 
+  const getProductionState = (order: Order) => {
+    const progress = getProductionProgress(order);
+    const dueTime = order.production_due_date ? new Date(order.production_due_date).getTime() : null;
+    if (order.status === 'ready' || order.status === 'delivered') {
+      return { label: progress.percent === 100 ? 'Producao concluida' : `Producao ${progress.percent}%`, bg: '#DCFCE7', text: '#166534' };
+    }
+    if (dueTime && !Number.isNaN(dueTime) && dueTime < currentTime && progress.percent < 100 && !['cancelled'].includes(order.status)) {
+      return { label: 'Producao atrasada', bg: '#FEE2E2', text: '#991B1B' };
+    }
+    if (progress.percent > 0) {
+      return { label: `Producao ${progress.percent}%`, bg: '#FEF3C7', text: '#92400E' };
+    }
+    if (order.status === 'confirmed' || order.status === 'in_production') {
+      return { label: 'Producao pendente', bg: '#F3F4F6', text: '#374151' };
+    }
+    return null;
+  };
+
   const filteredOrders = orders.filter((order) => {
     const searchable = [
       order.customer_name,
@@ -444,6 +541,8 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       order.reminder_notes,
       order.delivery_window,
       order.delivery_notes,
+      order.production_assignee,
+      order.production_notes,
       ...(order.order_items || []).map((item) => item.product_name),
     ].filter(Boolean).join(' ').toLowerCase();
 
@@ -583,6 +682,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                 {columnOrders.map(order => {
                   const deliveryState = getDeliveryState(order);
+                  const productionState = getProductionState(order);
                   return (
                   <div key={order.id} style={{ 
                     backgroundColor: 'var(--color-surface)', 
@@ -676,6 +776,12 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       {deliveryState && (
                         <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px', backgroundColor: deliveryState.bg, color: deliveryState.text, fontWeight: 800 }}>
                           {deliveryState.label}
+                        </span>
+                      )}
+                      {productionState && (
+                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px', backgroundColor: productionState.bg, color: productionState.text, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <ClipboardCheck size={10} />
+                          {productionState.label}
                         </span>
                       )}
                       <button
@@ -866,7 +972,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                 <h2 style={{ margin: '4px 0 0', fontSize: 22 }}>{selectedOrder.customer_name}</h2>
                 <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)' }}>{selectedOrder.source === 'storefront' ? 'Pedido recebido pelo site' : 'Pedido criado no admin'}</p>
               </div>
-              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); setItemDraft([]); setPaymentDraft(null); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
+              <button type="button" onClick={() => { setSelectedOrder(null); setDetailDraft(null); setItemDraft([]); setPaymentDraft(null); setProductionDraft(null); }} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--color-text)' }}><X size={22} /></button>
             </header>
             <div style={{ padding: 20, display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
@@ -921,6 +1027,41 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                   <a href={buildConfirmationWhatsappUrl(selectedOrder)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-whatsapp)', fontWeight: 800, textDecoration: 'none' }}>
                     Enviar mensagem de confirmacao no WhatsApp
                   </a>
+                </div>
+              )}
+
+              {productionDraft && (
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 14, display: 'grid', gap: 10 }}>
+                  <h3 style={{ fontSize: 15, margin: 0 }}>Producao</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+                    <input value={productionDraft.production_assignee} onChange={(event) => setProductionDraft({ ...productionDraft, production_assignee: event.target.value })} placeholder="Responsavel" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={productionDraft.production_due_date} onChange={(event) => setProductionDraft({ ...productionDraft, production_due_date: event.target.value })} type="datetime-local" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {productionDraft.production_checklist.map((item, index) => (
+                      <label key={item.key} style={{ display: 'grid', gridTemplateColumns: '22px 1fr', gap: 8, alignItems: 'center', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 10px' }}>
+                        <input
+                          type="checkbox"
+                          checked={item.done}
+                          onChange={(event) => setProductionDraft({
+                            ...productionDraft,
+                            production_checklist: productionDraft.production_checklist.map((draftItem, draftIndex) => draftIndex === index ? { ...draftItem, done: event.target.checked } : draftItem),
+                          })}
+                        />
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <textarea rows={2} value={productionDraft.production_notes} onChange={(event) => setProductionDraft({ ...productionDraft, production_notes: event.target.value })} placeholder="Observacoes de producao" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                      Checklist: {productionDraft.production_checklist.filter((item) => item.done).length}/{productionDraft.production_checklist.length}
+                    </span>
+                    <button type="button" onClick={handleSaveProduction} disabled={savingProduction} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: 'var(--color-primary)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+                      <Save size={16} />
+                      {savingProduction ? 'Salvando...' : 'Salvar producao'}
+                    </button>
+                  </div>
                 </div>
               )}
 

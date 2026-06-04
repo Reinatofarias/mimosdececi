@@ -116,6 +116,18 @@ CREATE TABLE orders (
   attachments JSONB DEFAULT '[]',
   status_history JSONB DEFAULT '[]',
   stock_decremented_at TIMESTAMPTZ,
+  production_assignee TEXT DEFAULT '',
+  production_due_date TIMESTAMPTZ,
+  production_checklist JSONB DEFAULT '[
+    {"key":"inputs","label":"Separar insumos","done":false},
+    {"key":"assembly","label":"Montar pedido","done":false},
+    {"key":"personalization","label":"Revisar personalizacao","done":false},
+    {"key":"packaging","label":"Embalar","done":false},
+    {"key":"final_review","label":"Conferencia final","done":false}
+  ]',
+  production_notes TEXT DEFAULT '',
+  production_started_at TIMESTAMPTZ,
+  production_completed_at TIMESTAMPTZ,
   cancelled_reason TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -246,6 +258,8 @@ CREATE INDEX idx_orders_delivery_date ON orders(delivery_date);
 CREATE INDEX idx_orders_delivery_window ON orders(delivery_window);
 CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX idx_orders_paid_at ON orders(paid_at);
+CREATE INDEX idx_orders_production_due_date ON orders(production_due_date);
+CREATE INDEX idx_orders_production_assignee ON orders(production_assignee);
 CREATE INDEX idx_promotions_active_dates ON promotions(active, start_date, end_date);
 CREATE INDEX idx_coupons_code ON coupons(code);
 CREATE INDEX idx_product_images_product_order ON product_images(product_id, sort_order);

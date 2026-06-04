@@ -35,9 +35,21 @@ export type Order = {
   attachments?: { label: string; url: string }[];
   status_history?: { status: string; at: string; note?: string }[];
   stock_decremented_at?: string | null;
+  production_assignee?: string;
+  production_due_date?: string | null;
+  production_checklist?: ProductionChecklistItem[];
+  production_notes?: string;
+  production_started_at?: string | null;
+  production_completed_at?: string | null;
   order_items?: OrderItem[];
   created_at: string;
   updated_at: string;
+};
+
+export type ProductionChecklistItem = {
+  key: string;
+  label: string;
+  done: boolean;
 };
 
 export type OrderItem = {

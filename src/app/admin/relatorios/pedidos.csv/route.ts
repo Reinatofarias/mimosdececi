@@ -11,7 +11,7 @@ export async function GET() {
 
   const orders = await getOrders();
   const rows = [
-    ['protocolo', 'origem', 'cliente', 'telefone', 'status', 'pagamento', 'total', 'valor_pago', 'saldo', 'custo', 'lucro', 'cupom', 'desconto', 'entrega', 'janela_entrega', 'taxa_entrega', 'endereco', 'criado_em'],
+    ['protocolo', 'origem', 'cliente', 'telefone', 'status', 'pagamento', 'total', 'valor_pago', 'saldo', 'custo', 'lucro', 'cupom', 'desconto', 'entrega', 'janela_entrega', 'taxa_entrega', 'responsavel_producao', 'prazo_producao', 'checklist_producao', 'endereco', 'criado_em'],
     ...orders.map((order) => [
       order.order_code || order.id,
       order.source || 'admin',
@@ -29,6 +29,9 @@ export async function GET() {
       order.delivery_date || '',
       order.delivery_window || '',
       (order.delivery_fee || 0) / 100,
+      order.production_assignee || '',
+      order.production_due_date || '',
+      Array.isArray(order.production_checklist) ? `${order.production_checklist.filter((item) => item.done).length}/${order.production_checklist.length}` : '',
       order.customer_address || '',
       order.created_at,
     ]),

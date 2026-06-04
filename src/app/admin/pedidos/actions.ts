@@ -12,6 +12,20 @@ const ORDER_STATUSES = new Set(['new', 'confirmed', 'in_production', 'ready', 'd
 const PAYMENT_STATUSES = new Set(['pending', 'partial', 'paid', 'refunded', 'cancelled']);
 const STOCK_DECREMENT_STATUSES = new Set(['confirmed', 'in_production', 'ready', 'delivered']);
 
+type ProductionChecklistItem = {
+  key: string;
+  label: string;
+  done: boolean;
+};
+
+const DEFAULT_PRODUCTION_CHECKLIST: ProductionChecklistItem[] = [
+  { key: 'inputs', label: 'Separar insumos', done: false },
+  { key: 'assembly', label: 'Montar pedido', done: false },
+  { key: 'personalization', label: 'Revisar personalizacao', done: false },
+  { key: 'packaging', label: 'Embalar', done: false },
+  { key: 'final_review', label: 'Conferencia final', done: false },
+];
+
 type OrderDetailsInput = {
   customer_name: string;
   customer_phone: string;
@@ -46,6 +60,13 @@ type PaymentInfoInput = {
   payment_notes?: string;
 };
 
+type ProductionInfoInput = {
+  production_assignee?: string;
+  production_due_date?: string | null;
+  production_checklist?: ProductionChecklistItem[];
+  production_notes?: string;
+};
+
 function buildAddress(data: OrderDetailsInput) {
   return [
     data.customer_zip_code ? `CEP ${data.customer_zip_code}` : '',
@@ -59,6 +80,20 @@ function buildAddress(data: OrderDetailsInput) {
 function addQuantity(map: Map<string, number>, productId: string | null | undefined, quantity: number) {
   if (!productId) return;
   map.set(productId, (map.get(productId) || 0) + quantity);
+}
+
+function normalizeProductionChecklist(items?: ProductionChecklistItem[] | null) {
+  const source = Array.isArray(items) && items.length > 0 ? items : DEFAULT_PRODUCTION_CHECKLIST;
+  return source.map((item, index) => ({
+    key: String(item.key || `step_${index + 1}`).slice(0, 40),
+    label: String(item.label || `Etapa ${index + 1}`).trim().slice(0, 80),
+    done: Boolean(item.done),
+  })).filter((item) => item.label);
+}
+
+function isProductionComplete(items?: ProductionChecklistItem[] | null) {
+  const checklist = normalizeProductionChecklist(items);
+  return checklist.length > 0 && checklist.every((item) => item.done);
 }
 
 export async function createOrder(data: OrderInput): Promise<ActionResult> {
@@ -95,7 +130,7 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   const supabase = createAdminClient();
   let orderResult = await supabase
     .from('orders')
-    .select('status, status_history, stock_decremented_at, order_items(product_id, quantity)')
+    .select('status, status_history, stock_decremented_at, production_checklist, production_started_at, production_completed_at, order_items(product_id, quantity)')
     .eq('id', id)
     .single();
   let canUseStockColumns = true;
@@ -112,8 +147,15 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   const order = orderResult.data as {
     status_history?: { status: string; at: string; note?: string }[] | null;
     stock_decremented_at?: string | null;
+    production_checklist?: ProductionChecklistItem[] | null;
+    production_started_at?: string | null;
+    production_completed_at?: string | null;
     order_items?: { product_id: string | null; quantity: number }[];
   } | null;
+
+  if (canUseStockColumns && status === 'ready' && !isProductionComplete(order?.production_checklist)) {
+    return { success: false, error: 'Finalize a checklist de producao antes de mover o pedido para Prontos.' };
+  }
 
   if (canUseStockColumns && order && STOCK_DECREMENT_STATUSES.has(status) && !order.stock_decremented_at) {
     const items = (order.order_items || []) as { product_id: string | null; quantity: number }[];
@@ -132,10 +174,13 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
     ...(((order?.status_history as { status: string; at: string; note?: string }[] | null) || [])),
     { status, at: new Date().toISOString() },
   ];
+  const now = new Date().toISOString();
   const updatePayload = {
     status,
     status_history: nextHistory,
-    stock_decremented_at: canUseStockColumns && order && STOCK_DECREMENT_STATUSES.has(status) && !order.stock_decremented_at ? new Date().toISOString() : order?.stock_decremented_at,
+    stock_decremented_at: canUseStockColumns && order && STOCK_DECREMENT_STATUSES.has(status) && !order.stock_decremented_at ? now : order?.stock_decremented_at,
+    production_started_at: canUseStockColumns && status === 'in_production' && !order?.production_started_at ? now : order?.production_started_at,
+    production_completed_at: canUseStockColumns && ['ready', 'delivered'].includes(status) && !order?.production_completed_at ? now : order?.production_completed_at,
   };
   let updateResult = await supabase.from('orders').update(updatePayload).eq('id', id);
 
@@ -225,6 +270,53 @@ export async function updatePaymentInfo(id: string, data: PaymentInfoInput): Pro
   revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
   return { success: true, payment: payload };
+}
+
+export async function updateProductionInfo(id: string, data: ProductionInfoInput): Promise<ActionResult & {
+  production?: {
+    production_assignee: string;
+    production_due_date: string | null;
+    production_checklist: ProductionChecklistItem[];
+    production_notes: string;
+    production_started_at: string | null;
+    production_completed_at: string | null;
+  };
+}> {
+  const authError = await requireAdminAction();
+  if (authError) return authError;
+
+  const checklist = normalizeProductionChecklist(data.production_checklist);
+  const isComplete = checklist.every((item) => item.done);
+  const payload = {
+    production_assignee: data.production_assignee?.trim() || '',
+    production_due_date: data.production_due_date || null,
+    production_checklist: checklist,
+    production_notes: data.production_notes?.trim() || '',
+    production_started_at: checklist.some((item) => item.done) ? new Date().toISOString() : null,
+    production_completed_at: isComplete ? new Date().toISOString() : null,
+  };
+
+  const supabase = createAdminClient();
+  const updateResult = await supabase.from('orders').update(payload).eq('id', id);
+
+  if (updateResult.error && isMissingColumnError(updateResult.error)) {
+    return { success: false, error: 'Execute a migration de producao no Supabase antes de salvar esta etapa.' };
+  }
+
+  if (updateResult.error) {
+    console.error('Erro ao atualizar producao do pedido:', updateResult.error);
+    return { success: false, error: updateResult.error.message };
+  }
+
+  await recordAuditLog({
+    action: 'order.production_update',
+    entityType: 'order',
+    entityId: id,
+    metadata: { assignee: payload.production_assignee, completed: isComplete, due_date: payload.production_due_date },
+  });
+  revalidatePath('/admin');
+  revalidatePath('/admin/pedidos');
+  return { success: true, production: payload };
 }
 
 export async function confirmOrder(id: string): Promise<ActionResult> {

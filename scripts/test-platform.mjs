@@ -104,6 +104,21 @@ const checks = [
     includes: ['delivery_fee', 'delivery_window', 'delivery_notes', 'valor pago igual ao total com entrega'],
   },
   {
+    name: 'production operations migration exists',
+    path: 'supabase/migrations/20260604150000_production_operations.sql',
+    includes: ['production_assignee', 'production_due_date', 'production_checklist', 'production_completed_at'],
+  },
+  {
+    name: 'CRM saves production checklist',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['productionDraft', 'handleSaveProduction', 'Salvar producao', 'Producao atrasada'],
+  },
+  {
+    name: 'order actions validate production before ready',
+    path: 'src/app/admin/pedidos/actions.ts',
+    includes: ['updateProductionInfo', 'Finalize a checklist de producao', 'order.production_update'],
+  },
+  {
     name: 'product form uses structured variations',
     path: 'src/app/admin/produtos/ProductForm.tsx',
     includes: ['variationEntries', 'Nome da variação', 'Acréscimo R$'],
