@@ -108,6 +108,9 @@ CREATE TABLE orders (
   customer_city TEXT DEFAULT '',
   customer_state TEXT DEFAULT '',
   delivery_date TIMESTAMPTZ,
+  delivery_fee INTEGER DEFAULT 0,
+  delivery_window TEXT DEFAULT '',
+  delivery_notes TEXT DEFAULT '',
   priority TEXT DEFAULT 'normal',
   reminder_notes TEXT DEFAULT '',
   attachments JSONB DEFAULT '[]',
@@ -240,6 +243,7 @@ CREATE INDEX idx_orders_created ON orders(created_at DESC);
 CREATE INDEX idx_orders_order_code ON orders(order_code);
 CREATE INDEX idx_orders_source ON orders(source);
 CREATE INDEX idx_orders_delivery_date ON orders(delivery_date);
+CREATE INDEX idx_orders_delivery_window ON orders(delivery_window);
 CREATE INDEX idx_orders_payment_status ON orders(payment_status);
 CREATE INDEX idx_orders_paid_at ON orders(paid_at);
 CREATE INDEX idx_promotions_active_dates ON promotions(active, start_date, end_date);

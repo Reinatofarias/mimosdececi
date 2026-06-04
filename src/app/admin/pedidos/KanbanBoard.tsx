@@ -26,6 +26,9 @@ type EditableOrderDetails = {
   customer_city: string;
   customer_state: string;
   delivery_date: string;
+  delivery_fee: string;
+  delivery_window: string;
+  delivery_notes: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
   notes: string;
   reminder_notes: string;
@@ -59,6 +62,8 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [deliveryFilter, setDeliveryFilter] = useState('all');
+  const [currentTime] = useState(() => Date.now());
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailDraft, setDetailDraft] = useState<EditableOrderDetails | null>(null);
   const [itemDraft, setItemDraft] = useState<EditableOrderItem[]>([]);
@@ -90,6 +95,9 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       customer_city: order.customer_city || '',
       customer_state: order.customer_state || '',
       delivery_date: toDateTimeLocal(order.delivery_date),
+      delivery_fee: String(((order.delivery_fee || 0) / 100).toFixed(2)),
+      delivery_window: order.delivery_window || '',
+      delivery_notes: order.delivery_notes || '',
       priority: (order.priority || 'normal') as EditableOrderDetails['priority'],
       notes: order.notes || '',
       reminder_notes: order.reminder_notes || '',
@@ -173,6 +181,10 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
   };
 
+  const getChargeTotal = (order: Order) => (order.total_price || 0) + (order.delivery_fee || 0);
+  const getOrderBalance = (order: Order) => Math.max(0, getChargeTotal(order) - (order.amount_paid || 0));
+  const getOrderProfit = (order: Order) => getChargeTotal(order) - (order.total_cost || 0);
+
   const getPaymentMethodLabel = (method: string) => {
     if (!method) return 'Não Informado';
     switch (method.toLowerCase()) {
@@ -203,11 +215,15 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       '',
       ...items.map((item) => `- ${item.quantity}x ${item.product_name} (${formatPrice(item.product_price * item.quantity)})`),
       order.discount_amount ? `Desconto: -${formatPrice(order.discount_amount)}` : '',
-      `Total: ${formatPrice(order.total_price)}`,
+      `Subtotal: ${formatPrice(order.total_price)}`,
+      order.delivery_fee ? `Taxa de entrega: ${formatPrice(order.delivery_fee)}` : '',
+      `Total com entrega: ${formatPrice(getChargeTotal(order))}`,
       order.amount_paid ? `Valor pago: ${formatPrice(order.amount_paid)}` : '',
-      Math.max(0, (order.total_price || 0) - (order.amount_paid || 0)) > 0 ? `Saldo pendente: ${formatPrice(Math.max(0, (order.total_price || 0) - (order.amount_paid || 0)))}` : '',
+      getOrderBalance(order) > 0 ? `Saldo pendente: ${formatPrice(getOrderBalance(order))}` : '',
       order.delivery_date ? `Entrega combinada: ${new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '',
+      order.delivery_window ? `Janela de entrega: ${order.delivery_window}` : '',
       order.customer_address ? `Endereco: ${order.customer_address}` : '',
+      order.delivery_notes ? `Observacao de entrega: ${order.delivery_notes}` : '',
     ].filter(Boolean).join('\n');
     return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
@@ -218,10 +234,14 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       '',
       ...(order.order_items || []).map((item) => `- ${item.quantity}x ${item.product_name}`),
       '',
-      `Total: ${formatPrice(order.total_price || 0)}`,
+      `Subtotal: ${formatPrice(order.total_price || 0)}`,
+      order.delivery_fee ? `Taxa de entrega: ${formatPrice(order.delivery_fee)}` : '',
+      `Total com entrega: ${formatPrice(getChargeTotal(order))}`,
       `Pagamento: ${getPaymentStatusLabel(order.payment_status)}${order.amount_paid ? ` (${formatPrice(order.amount_paid)})` : ''}`,
       order.delivery_date ? `Entrega: ${new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '',
+      order.delivery_window ? `Janela: ${order.delivery_window}` : '',
       order.customer_address ? `Endereco: ${order.customer_address}` : '',
+      order.delivery_notes ? `Obs. entrega: ${order.delivery_notes}` : '',
     ].filter(Boolean).join('\n');
     return `https://wa.me/55${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
@@ -230,9 +250,11 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     if (!selectedOrder || !detailDraft) return;
     setSavingDetails(true);
     setErrorAlert(null);
+    const deliveryFee = Math.round(Number(detailDraft.delivery_fee.replace(',', '.') || 0) * 100);
     const result = await updateOrderDetails(selectedOrder.id, {
       ...detailDraft,
       delivery_date: detailDraft.delivery_date ? new Date(detailDraft.delivery_date).toISOString() : null,
+      delivery_fee: deliveryFee,
     });
     setSavingDetails(false);
 
@@ -253,6 +275,9 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
         [detailDraft.customer_city, detailDraft.customer_state].filter(Boolean).join(' - '),
       ].filter(Boolean).join(' | '),
       delivery_date: detailDraft.delivery_date ? new Date(detailDraft.delivery_date).toISOString() : null,
+      delivery_fee: deliveryFee,
+      delivery_window: detailDraft.delivery_window,
+      delivery_notes: detailDraft.delivery_notes,
       priority: detailDraft.priority,
     };
     setOrders((current) => current.map((order) => order.id === updatedOrder.id ? updatedOrder : order));
@@ -359,6 +384,56 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
     setErrorAlert('Pedido confirmado e pronto para producao.');
   };
 
+  const isOpenDeliveryOrder = (order: Order) => !['delivered', 'cancelled'].includes(order.status);
+
+  const getDeliveryTime = (order: Order) => {
+    if (!order.delivery_date) return null;
+    const time = new Date(order.delivery_date).getTime();
+    return Number.isNaN(time) ? null : time;
+  };
+
+  const getDeliveryState = (order: Order) => {
+    const deliveryTime = getDeliveryTime(order);
+    const isOpen = isOpenDeliveryOrder(order);
+    if (!deliveryTime && isOpen) {
+      return { label: 'Sem entrega', bg: '#F3F4F6', text: '#374151' };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    if (deliveryTime && isOpen && deliveryTime < currentTime) {
+      return { label: 'Atrasado', bg: '#FEE2E2', text: '#991B1B' };
+    }
+
+    if (deliveryTime && deliveryTime >= today.getTime() && deliveryTime < tomorrow.getTime()) {
+      return { label: 'Entrega hoje', bg: '#DCFCE7', text: '#166534' };
+    }
+
+    return null;
+  };
+
+  const matchesDeliveryFilter = (order: Order) => {
+    if (deliveryFilter === 'all') return true;
+
+    const deliveryTime = getDeliveryTime(order);
+    const isOpen = isOpenDeliveryOrder(order);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7);
+
+    if (deliveryFilter === 'missing') return isOpen && !deliveryTime;
+    if (deliveryFilter === 'late') return isOpen && Boolean(deliveryTime && deliveryTime < currentTime);
+    if (deliveryFilter === 'today') return Boolean(deliveryTime && deliveryTime >= today.getTime() && deliveryTime < tomorrow.getTime());
+    if (deliveryFilter === 'week') return Boolean(deliveryTime && deliveryTime >= today.getTime() && deliveryTime < weekEnd.getTime());
+    return true;
+  };
+
   const filteredOrders = orders.filter((order) => {
     const searchable = [
       order.customer_name,
@@ -367,13 +442,15 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
       order.notes,
       order.customer_address,
       order.reminder_notes,
+      order.delivery_window,
+      order.delivery_notes,
       ...(order.order_items || []).map((item) => item.product_name),
     ].filter(Boolean).join(' ').toLowerCase();
 
     const matchesSearch = searchable.includes(searchTerm.trim().toLowerCase());
     const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
     const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
-    return matchesSearch && matchesPriority && matchesPayment;
+    return matchesSearch && matchesPriority && matchesPayment && matchesDeliveryFilter(order);
   });
 
   const getPriorityLabel = (priority?: string) => {
@@ -409,7 +486,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
         borderRadius: 'var(--radius-md)',
         padding: 'var(--space-md)',
         display: 'grid',
-        gridTemplateColumns: 'minmax(220px, 1fr) 180px 180px',
+        gridTemplateColumns: 'minmax(220px, 1fr) 180px 180px 180px',
         gap: 'var(--space-md)',
         alignItems: 'center'
       }}>
@@ -445,6 +522,17 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
           <option value="paid">Pago</option>
           <option value="refunded">Estornado</option>
           <option value="cancelled">Cancelado</option>
+        </select>
+        <select
+          value={deliveryFilter}
+          onChange={(event) => setDeliveryFilter(event.target.value)}
+          style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
+        >
+          <option value="all">Todas entregas</option>
+          <option value="today">Entrega hoje</option>
+          <option value="week">Proximos 7 dias</option>
+          <option value="late">Atrasados</option>
+          <option value="missing">Sem data</option>
         </select>
       </div>
 
@@ -493,7 +581,9 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
 
               {/* Column Cards Container */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                {columnOrders.map(order => (
+                {columnOrders.map(order => {
+                  const deliveryState = getDeliveryState(order);
+                  return (
                   <div key={order.id} style={{ 
                     backgroundColor: 'var(--color-surface)', 
                     padding: 'var(--space-lg)', 
@@ -539,14 +629,15 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Calendar size={12} />
                         Entrega: {new Date(order.delivery_date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        {order.delivery_window ? ` (${order.delivery_window})` : ''}
                       </div>
                     )}
 
                     {/* Price */}
                     <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--color-primary-dark)', marginBottom: '12px' }}>
-                      {formatPrice(order.total_price)}
+                      {formatPrice(getChargeTotal(order))}
                       <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                        Lucro: {formatPrice((order.total_price || 0) - (order.total_cost || 0))}
+                        Lucro: {formatPrice(getOrderProfit(order))}
                       </span>
                     </div>
 
@@ -580,6 +671,11 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       {order.coupon_code && (
                         <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px', backgroundColor: '#EEF2FF', color: '#3730A3', fontWeight: 700 }}>
                           {order.coupon_code}
+                        </span>
+                      )}
+                      {deliveryState && (
+                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px', backgroundColor: deliveryState.bg, color: deliveryState.text, fontWeight: 800 }}>
+                          {deliveryState.label}
                         </span>
                       )}
                       <button
@@ -633,6 +729,20 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       }}>
                         <MapPin size={13} style={{ flexShrink: 0, marginTop: 1 }} />
                         <span>{order.customer_address}</span>
+                      </div>
+                    )}
+
+                    {order.delivery_notes && (
+                      <div style={{
+                        fontSize: '11px',
+                        backgroundColor: '#F0F9FF',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        color: '#075985',
+                        borderLeft: '3px solid #38BDF8'
+                      }}>
+                        {order.delivery_notes}
                       </div>
                     )}
 
@@ -713,7 +823,8 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       </a>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {columnOrders.length === 0 && (
                   <div style={{ 
                     textAlign: 'center', 
@@ -760,11 +871,13 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
             <div style={{ padding: 20, display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
                 {[
-                  ['Total', formatPrice(selectedOrder.total_price || 0)],
+                  ['Subtotal', formatPrice(selectedOrder.total_price || 0)],
+                  ['Taxa entrega', formatPrice(selectedOrder.delivery_fee || 0)],
+                  ['Total', formatPrice(getChargeTotal(selectedOrder))],
                   ['Pago', formatPrice(selectedOrder.amount_paid || 0)],
-                  ['Saldo', formatPrice(Math.max(0, (selectedOrder.total_price || 0) - (selectedOrder.amount_paid || 0)))],
+                  ['Saldo', formatPrice(getOrderBalance(selectedOrder))],
                   ['Custo', formatPrice(selectedOrder.total_cost || 0)],
-                  ['Lucro', formatPrice((selectedOrder.total_price || 0) - (selectedOrder.total_cost || 0))],
+                  ['Lucro', formatPrice(getOrderProfit(selectedOrder))],
                   ['Pagamento', getPaymentStatusLabel(selectedOrder.payment_status)],
                 ].map(([label, value]) => (
                   <div key={label} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 12 }}>
@@ -876,6 +989,10 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                       <option value="urgent">Urgente</option>
                     </select>
                   </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '150px minmax(0, 1fr)', gap: 10 }}>
+                    <input value={detailDraft.delivery_fee} onChange={(event) => setDetailDraft({ ...detailDraft, delivery_fee: event.target.value })} placeholder="Taxa entrega" type="number" step="0.01" min="0" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <input value={detailDraft.delivery_window} onChange={(event) => setDetailDraft({ ...detailDraft, delivery_window: event.target.value })} placeholder="Janela de entrega. Ex: 14h as 18h" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px', gap: 10 }}>
                     <input value={detailDraft.customer_zip_code} onChange={(event) => setDetailDraft({ ...detailDraft, customer_zip_code: event.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="CEP" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                     <input value={detailDraft.customer_street} onChange={(event) => setDetailDraft({ ...detailDraft, customer_street: event.target.value })} placeholder="Rua / Avenida" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
@@ -888,6 +1005,7 @@ export function KanbanBoard({ orders: initialOrders, products }: KanbanBoardProp
                     <input value={detailDraft.customer_state} onChange={(event) => setDetailDraft({ ...detailDraft, customer_state: event.target.value.toUpperCase().slice(0, 2) })} placeholder="UF" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                   </div>
                   <textarea rows={3} value={detailDraft.notes} onChange={(event) => setDetailDraft({ ...detailDraft, notes: event.target.value })} placeholder="Observacoes do pedido" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                  <textarea rows={2} value={detailDraft.delivery_notes} onChange={(event) => setDetailDraft({ ...detailDraft, delivery_notes: event.target.value })} placeholder="Observacoes de entrega" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                   <textarea rows={3} value={detailDraft.reminder_notes} onChange={(event) => setDetailDraft({ ...detailDraft, reminder_notes: event.target.value })} placeholder="Lembretes internos" style={{ padding: 10, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                   <button type="button" onClick={handleSaveDetails} disabled={savingDetails} style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: 8, border: 0, borderRadius: 8, padding: '11px 14px', background: 'var(--color-primary)', color: 'white', fontWeight: 800, cursor: 'pointer' }}>
                     <Save size={16} />

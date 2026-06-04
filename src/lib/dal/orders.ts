@@ -27,6 +27,9 @@ export type Order = {
   customer_city?: string;
   customer_state?: string;
   delivery_date?: string | null;
+  delivery_fee?: number;
+  delivery_window?: string;
+  delivery_notes?: string;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   reminder_notes?: string;
   attachments?: { label: string; url: string }[];

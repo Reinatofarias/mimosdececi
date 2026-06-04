@@ -89,6 +89,21 @@ const checks = [
     includes: ['confirmOrder', 'updatePaymentInfo', 'pagamento parcial ou pago', 'order.confirm'],
   },
   {
+    name: 'delivery operations migration exists',
+    path: 'supabase/migrations/20260604140000_delivery_operations.sql',
+    includes: ['delivery_fee', 'delivery_window', 'delivery_notes'],
+  },
+  {
+    name: 'CRM filters and edits delivery operations',
+    path: 'src/app/admin/pedidos/KanbanBoard.tsx',
+    includes: ['deliveryFilter', 'Atrasado', 'Taxa entrega', 'Janela de entrega'],
+  },
+  {
+    name: 'order details persist delivery operations',
+    path: 'src/app/admin/pedidos/actions.ts',
+    includes: ['delivery_fee', 'delivery_window', 'delivery_notes', 'valor pago igual ao total com entrega'],
+  },
+  {
     name: 'product form uses structured variations',
     path: 'src/app/admin/produtos/ProductForm.tsx',
     includes: ['variationEntries', 'Nome da variação', 'Acréscimo R$'],

@@ -23,6 +23,9 @@ type OrderDetailsInput = {
   customer_city?: string;
   customer_state?: string;
   delivery_date?: string | null;
+  delivery_fee?: number;
+  delivery_window?: string;
+  delivery_notes?: string;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   notes?: string;
   reminder_notes?: string;
@@ -231,7 +234,7 @@ export async function confirmOrder(id: string): Promise<ActionResult> {
   const supabase = createAdminClient();
   const { data: order, error } = await supabase
     .from('orders')
-    .select('customer_name, customer_phone, customer_address, delivery_date, total_price, payment_status, amount_paid, order_items(id)')
+    .select('customer_name, customer_phone, customer_address, delivery_date, total_price, delivery_fee, payment_status, amount_paid, order_items(id)')
     .eq('id', id)
     .single();
 
@@ -248,6 +251,9 @@ export async function confirmOrder(id: string): Promise<ActionResult> {
   if (Number(order.total_price || 0) <= 0) missing.push('valor total');
   if (!['partial', 'paid'].includes(String(order.payment_status))) missing.push('pagamento parcial ou pago');
   if (Number(order.amount_paid || 0) <= 0) missing.push('valor pago');
+  if (String(order.payment_status) === 'paid' && Number(order.amount_paid || 0) < Number(order.total_price || 0) + Number(order.delivery_fee || 0)) {
+    missing.push('valor pago igual ao total com entrega');
+  }
 
   if (missing.length > 0) {
     return { success: false, error: `Antes de confirmar, preencha: ${missing.join(', ')}.` };
@@ -284,6 +290,9 @@ export async function updateOrderDetails(id: string, data: OrderDetailsInput): P
     customer_state: data.customer_state?.trim().toUpperCase().slice(0, 2) || '',
     customer_address: buildAddress(data),
     delivery_date: data.delivery_date || null,
+    delivery_fee: Math.max(0, Number(data.delivery_fee || 0)),
+    delivery_window: data.delivery_window?.trim() || '',
+    delivery_notes: data.delivery_notes?.trim() || '',
     priority: data.priority || 'normal',
     notes: data.notes?.trim() || '',
     reminder_notes: data.reminder_notes?.trim() || '',
@@ -308,7 +317,7 @@ export async function updateOrderDetails(id: string, data: OrderDetailsInput): P
     action: 'order.details_update',
     entityType: 'order',
     entityId: id,
-    metadata: { customer: payload.customer_name, delivery_date: payload.delivery_date, priority: payload.priority },
+    metadata: { customer: payload.customer_name, delivery_date: payload.delivery_date, delivery_window: payload.delivery_window, priority: payload.priority },
   });
   revalidatePath('/admin');
   revalidatePath('/admin/pedidos');
