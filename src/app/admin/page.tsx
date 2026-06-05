@@ -2,7 +2,7 @@ import React from 'react';
 import { getAdminProducts } from '@/lib/dal/products';
 import { getOrders, getAllOrderItems } from '@/lib/dal/orders';
 import { isProductPublic } from '@/lib/product-rules';
-import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy, Download } from 'lucide-react';
+import { Package, Ticket, ClipboardCheck, Clock, TrendingUp, Trophy, Download, ShieldCheck } from 'lucide-react';
 
 export const revalidate = 0;
 
@@ -62,10 +62,16 @@ export default async function AdminDashboard() {
           Bem-vinda de volta ao painel de gestão, Ceci! Acompanhe suas vendas e catálogo.
         </p>
         </div>
-        <a href="/admin/relatorios/pedidos.csv" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', color: 'var(--color-text)', textDecoration: 'none', fontWeight: 700, background: 'var(--color-surface)' }}>
-          <Download size={16} />
-          Exportar pedidos
-        </a>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <a href="/admin/relatorios/pedidos.csv" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', color: 'var(--color-text)', textDecoration: 'none', fontWeight: 700, background: 'var(--color-surface)' }}>
+            <Download size={16} />
+            Exportar pedidos
+          </a>
+          <a href="/admin/auditoria" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', color: 'var(--color-text)', textDecoration: 'none', fontWeight: 700, background: 'var(--color-surface)' }}>
+            <ShieldCheck size={16} />
+            Auditoria
+          </a>
+        </div>
       </div>
 
       {/* Metrics Grid */}

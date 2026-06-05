@@ -144,6 +144,31 @@ const checks = [
     includes: ['isAdminSession', 'text/csv', 'pedidos-mimos-de-ceci.csv'],
   },
   {
+    name: 'admin navigation is grouped professionally',
+    path: 'src/app/admin/layout.tsx',
+    includes: ['Operacao', 'Catalogo', 'Comercial', 'Controle', '/admin/auditoria'],
+  },
+  {
+    name: 'audit log DAL supports filters',
+    path: 'src/lib/dal/audit-logs.ts',
+    includes: ['getAuditLogs', 'entityType', 'actor_email', 'summarizeAuditMetadata'],
+  },
+  {
+    name: 'audit page exposes filters and export',
+    path: 'src/app/admin/auditoria/page.tsx',
+    includes: ['Auditoria', 'Exportar CSV', 'ENTITY_OPTIONS', 'ACTION_OPTIONS'],
+  },
+  {
+    name: 'admin can export audit CSV',
+    path: 'src/app/admin/relatorios/auditoria.csv/route.ts',
+    includes: ['isAdminSession', 'auditoria-mimos-de-ceci.csv', 'getAuditLogs'],
+  },
+  {
+    name: 'audit observability indexes migration exists',
+    path: 'supabase/migrations/20260604170000_audit_observability_indexes.sql',
+    includes: ['idx_audit_logs_actor_email', 'idx_audit_logs_action_created', 'idx_audit_logs_entity_created'],
+  },
+  {
     name: 'auth rate limits credential failures',
     path: 'src/lib/auth.ts',
     includes: ['MAX_LOGIN_ATTEMPTS', 'registerLoginFailure', 'isLoginLocked'],

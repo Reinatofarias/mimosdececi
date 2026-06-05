@@ -278,6 +278,9 @@ CREATE INDEX idx_coupon_redemptions_phone ON coupon_redemptions(customer_phone);
 CREATE INDEX idx_product_images_product_order ON product_images(product_id, sort_order);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX idx_audit_logs_actor_email ON audit_logs(actor_email);
+CREATE INDEX idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
+CREATE INDEX idx_audit_logs_entity_created ON audit_logs(entity_type, created_at DESC);
 
 -- ═══════════════════════════════════════════
 -- TRIGGERS DE UPDATED_AT
